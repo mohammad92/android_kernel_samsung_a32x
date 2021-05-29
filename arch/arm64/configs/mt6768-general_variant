@@ -1,0 +1,17 @@
+#! /usr/bin/env bash
+# edit here
+# def/undef for local target
+
+# *** WARNING: Add enable/disable configs as newline ***
+
+a31_00="""
+"""
+
+a31ks_00="""
+"""
+
+a41_00="""
+"""
+
+a41dcm_00="""
+"""
