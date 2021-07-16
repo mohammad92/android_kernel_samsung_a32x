@@ -264,6 +264,8 @@ struct ssp_data {
 	struct workqueue_struct *ts_sync_wq;
 	struct work_struct work_ts_sync;
 
+	struct work_struct work_dump;
+
 	char fw_name[50];
 	int fw_type;
 	unsigned int curr_fw_rev;

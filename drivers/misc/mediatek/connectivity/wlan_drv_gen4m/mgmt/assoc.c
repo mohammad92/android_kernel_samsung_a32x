@@ -1212,14 +1212,24 @@ assocCheckRxReAssocRspFrameStatus(IN struct ADAPTER *prAdapter,
 		uint16_t u2IELength;
 		uint16_t u2Offset = 0;
 
-		u2IELength = prSwRfb->u2PacketLen - prSwRfb->u2HeaderLen;
-		pucIE =
-		    (uint8_t *) ((unsigned long)prSwRfb->pvHeader +
-				 prSwRfb->u2HeaderLen);
+		DBGLOG(SAA, INFO,
+			"AP rejected due to temporary reject\n");
+		u2IELength = prSwRfb->u2PacketLen -
+			(uint16_t) OFFSET_OF(struct WLAN_ASSOC_RSP_FRAME,
+			 aucInfoElem[0]);
+		pucIE = prAssocRspFrame->aucInfoElem;
+		if (pucIE != NULL && u2IELength > 0) {
+			DBGLOG_MEM8(SAA, TRACE, pucIE, u2IELength);
+		} else {
+			DBGLOG(SAA, ERROR,"Empty IE\n");
+		}
 
 		IE_FOR_EACH(pucIE, u2IELength, u2Offset) {
+			DBGLOG(SAA, INFO,"IE ID:%d Length:%d \n", IE_ID(pucIE), IE_LEN(pucIE));
 			if (IE_ID(pucIE) == ELEM_ID_TIMEOUT_INTERVAL
 			    && IE_LEN(pucIE) == 5) {
+				DBGLOG(SAA, INFO,
+					"Parsing ELEM_ID_TIMEOUT_INTERVAL\n");
 				pucTime = ((struct IE_HDR *)pucIE)->aucInfo;
 				if (pucTime[0] ==
 				    ACTION_SA_TIMEOUT_ASSOC_COMEBACK) {

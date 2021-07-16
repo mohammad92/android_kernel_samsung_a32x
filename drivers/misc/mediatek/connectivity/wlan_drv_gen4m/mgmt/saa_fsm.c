@@ -1324,14 +1324,15 @@ uint32_t saaFsmRunEventRxDeauth(IN struct ADAPTER *prAdapter,
 						ucBssIndex);
 
 					DBGLOG(RSN, INFO,
-					       "QM RX MGT: Deauth frame, P=%d Sec=%d CM=%d BC=%d fc=%02x\n",
+					       "QM RX MGT: Deauth frame, P=%d Sec=%d CM=%d BC=%d fc=%02x wlanIdx=%d\n",
 					       prAisSpecBssInfo->
 						fgMgmtProtection, (uint8_t)
 						prSwRfb->ucSecMode,
 						prSwRfb->fgIsCipherMS,
 						IS_BMCAST_MAC_ADDR
 						(prDeauthFrame->aucDestAddr),
-						prDeauthFrame->u2FrameCtrl);
+						prDeauthFrame->u2FrameCtrl,
+						ucWlanIdx);
 					if (prAisSpecBssInfo->fgMgmtProtection
 					    && prSwRfb->fgIsCipherMS
 					    /* HAL_RX_STATUS_GET_SEC_MODE
@@ -1545,14 +1546,15 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 						ucBssIndex);
 
 					DBGLOG(RSN, INFO,
-					       "QM RX MGT: Disassoc frame, P=%d Sec=%d CM=%d BC=%d fc=%02x\n",
+					       "QM RX MGT: Disassoc frame, P=%d Sec=%d CM=%d BC=%d fc=%02x wlanIdx=%d\n",
 					       prAisSpecBssInfo->
 						fgMgmtProtection, (uint8_t)
 						prSwRfb->ucSecMode,
 						prSwRfb->fgIsCipherMS,
 						IS_BMCAST_MAC_ADDR
 						(prDisassocFrame->aucDestAddr),
-						prDisassocFrame->u2FrameCtrl);
+						prDisassocFrame->u2FrameCtrl,
+						ucWlanIdx);
 					if (IS_STA_IN_AIS(prStaRec) &&
 					    prAisSpecBssInfo->fgMgmtProtection
 					    && prSwRfb->fgIsCipherMS

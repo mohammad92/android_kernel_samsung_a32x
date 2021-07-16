@@ -40,6 +40,8 @@
 
 #include "mt6359.h"
 
+#undef USE_ZCD_FUNCTION
+
 enum {
 	MT6359_AIF_1 = 0,	/* dl: hp, rcv, hp+lo */
 	MT6359_AIF_2,		/* dl: lo only */
@@ -647,6 +649,7 @@ static const char *const hp_dl_pga_gain[] = {
 
 static void zcd_enable(struct mt6359_priv *priv, bool enable, int device)
 {
+#ifdef USE_ZCD_FUNCTION
 	if (enable) {
 		switch (device) {
 		case DEVICE_RCV:
@@ -682,6 +685,10 @@ static void zcd_enable(struct mt6359_priv *priv, bool enable, int device)
 		regmap_update_bits(priv->regmap, MT6359_ZCD_CON0,
 				   0xffff, 0x0000);
 	}
+#else
+	dev_info(priv->dev, "%s: ZCD is disabled.\n", __func__);
+	regmap_write(priv->regmap, MT6359_ZCD_CON0, 0x0000);
+#endif
 }
 
 static void hp_main_output_ramp(struct mt6359_priv *priv, bool up)

@@ -54,6 +54,8 @@ extern int adapter_get_status(struct ta_status *sta);
 extern int adapter_is_support_pd_pps(void);
 
 extern int adapter_get_cap(struct pd_cap *cap);
+extern bool adapter_is_src_usb_suspend_support(void);
+extern bool adapter_is_src_usb_communication_capable(void);
 extern int adapter_is_support_pd(void);
 
 extern int set_charger_manager(struct charger_manager *info);

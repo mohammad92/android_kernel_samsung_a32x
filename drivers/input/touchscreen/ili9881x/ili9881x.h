@@ -409,7 +409,9 @@ enum {
 	SERVICE_SHUTDOWN = -1,
 	LCD_NONE = 0,
 	LCD_OFF,
-	LCD_ON
+	LCD_ON,
+	LCD_DOZE1,
+	LCD_DOZE2
 };
 
 enum {

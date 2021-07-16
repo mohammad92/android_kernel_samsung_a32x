@@ -43,7 +43,7 @@
  *                              C O N S T A N T S
  *******************************************************************************
  */
-#define MTK_INFO_MAX_SIZE 128
+#define MTK_INFO_MAX_SIZE 256
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -58,9 +58,10 @@
 static struct GLUE_INFO *g_prGlueInfo;
 static struct kobject *wifi_kobj;
 static uint8_t aucMacAddrOverride[] = "FF:FF:FF:FF:FF:FF";
-static uint8_t aucDefaultFWVersion[] = "t-neptune-mp-soc1_0e1-1950-tc10sp-TALBOT_SOC1_0_E1_ASIC-20210120183002";
+static uint8_t aucDefaultFWVersion[] = "t-neptune-mp-soc1_0e1-1950-tc10sp-TALBOT_SOC1_0_E1_ASIC-20210209123002";
 static u_int8_t fgIsMacAddrOverride = FALSE;
 static int32_t g_i4PM = -1;
+static int32_t g_i4Ant = -1;
 static char acVerInfo[MTK_INFO_MAX_SIZE];
 static char acSoftAPInfo[MTK_INFO_MAX_SIZE];
 
@@ -203,6 +204,54 @@ static ssize_t memdump_store(
 	return (i4Ret == 0) ? count : 0;
 }
 
+static ssize_t ant_show(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	return snprintf(buf,
+		sizeof(g_i4Ant),
+		"%d", g_i4Ant);
+}
+
+
+static void sysAntSetMode(void)
+{
+	char input[4] = {0};
+
+	if (!g_prGlueInfo)
+		DBGLOG(INIT, ERROR, "g_prGlueInfo is null\n");
+	else if (g_i4Ant == -1)
+		DBGLOG(INIT, TRACE, "keep default\n");
+	else {
+		snprintf(input, sizeof(g_i4Ant), "%d", g_i4Ant-1);
+		wlanCfgSet(g_prGlueInfo->prAdapter,
+			"SpeIdxCtrl", input, WLAN_CFG_DEFAULT);
+	}
+}
+
+static ssize_t ant_store(
+	struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	int32_t i4Ret = 0;
+
+	i4Ret = kstrtoint(buf, 10, &g_i4Ant);
+
+	if (i4Ret)
+		DBGLOG(INIT, ERROR, "sscanf ant fail u4Ret=%d\n", i4Ret);
+	else {
+		DBGLOG(INIT, INFO,
+			"Set ANT to %d.\n",
+			g_i4Ant);
+	}
+
+	return (i4Ret == 0) ? count : 0;
+}
+
+
 
 /*******************************************************************************
  *                           P R I V A T E   D A T A
@@ -223,6 +272,9 @@ static struct kobj_attribute pm_attr
 
 static struct kobj_attribute memdump_attr
 	= __ATTR(memdump, 0664, memdump_show, memdump_store);
+
+static struct kobj_attribute ant_attr
+	= __ATTR(ant, 0664, ant_show, ant_store);
 
 /*******************************************************************************
  *                                 M A C R O S
@@ -307,7 +359,7 @@ void sysCreateWifiVer(void)
 
 	char aucDriverVersionStr[] = STR(NIC_DRIVER_MAJOR_VERSION) "_"
 		STR(NIC_DRIVER_MINOR_VERSION) "_"
-		STR(NIC_DRIVER_SERIAL_VERSION) "-"
+		STR(NIC_DRIVER_SERIAL_VERSION) "-security-"
 		DRIVER_BUILD_DATE;
 	uint16_t u2NvramVer = 0;
 	uint8_t ucOffset = 0;
@@ -489,6 +541,31 @@ void sysUninitMemdump(void)
 	sysfs_remove_file(wifi_kobj, &memdump_attr.attr);
 }
 
+void sysInitAnt(void)
+{
+	int32_t i4Ret = 0;
+
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	i4Ret = sysfs_create_file(wifi_kobj, &ant_attr.attr);
+	if (i4Ret)
+		DBGLOG(INIT, ERROR, "Unable to create macaddr entry\n");
+}
+
+void sysUninitAnt(void)
+{
+	if (!wifi_kobj) {
+		DBGLOG(INIT, ERROR, "wifi_kobj is null\n");
+		return;
+	}
+
+	sysfs_remove_file(wifi_kobj, &ant_attr.attr);
+}
+
+
 int32_t sysCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 {
 	DBGLOG(INIT, TRACE, "[%s]\n", __func__);
@@ -499,6 +576,7 @@ int32_t sysCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 	pm_EnterCtiaMode();
 	sysCreateWifiVer();
 	sysCreateSoftap();
+	sysAntSetMode();
 
 	return 0;
 }
@@ -523,6 +601,7 @@ int32_t sysInitFs(void)
 	sysInitSoftap();
 	sysInitPM();
 	sysInitMemdump();
+	sysInitAnt();
 
 	return 0;
 }
@@ -536,6 +615,7 @@ int32_t sysUninitSysFs(void)
 	sysUninitSoftap();
 	sysUninitWifiVer();
 	sysUninitMacAddr();
+	sysUninitAnt();
 
 	kobject_put(wifi_kobj);
 	kobject_uevent(wifi_kobj, KOBJ_REMOVE);

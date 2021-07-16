@@ -158,6 +158,9 @@ static void pd_dpm_update_pdos_flags(struct pd_port *pd_port, uint32_t pdo)
 
 		if (pdo & PDO_FIXED_COMM_CAP)
 			dpm_flags |= DPM_FLAGS_PARTNER_USB_COMM;
+
+		if (pdo & PDO_FIXED_SUSPEND)
+			dpm_flags |= DPM_FLAGS_PARTNER_USB_SUSPEND;
 	}
 
 	pd_port->pe_data.dpm_flags = dpm_flags;

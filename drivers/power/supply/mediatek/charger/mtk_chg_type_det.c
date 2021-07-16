@@ -38,6 +38,7 @@
 #include <linux/time.h>
 #include <linux/uaccess.h>
 #include <linux/reboot.h>
+#include <linux/usb_notify.h>
 
 #include <linux/of.h>
 #include <linux/extcon.h>
@@ -107,9 +108,11 @@ static const char * const mtk_chg_type_name[] = {
 	"Charging USB Host",
 	"Non-standard Charger",
 	"Standard Charger",
+	"Apple 2.4A Charger",
 	"Apple 2.1A Charger",
 	"Apple 1.0A Charger",
 	"Apple 0.5A Charger",
+	"Samsung Charger",
 	"Wireless Charger",
 };
 
@@ -121,9 +124,11 @@ static void dump_charger_name(enum charger_type type)
 	case CHARGING_HOST:
 	case NONSTANDARD_CHARGER:
 	case STANDARD_CHARGER:
+	case APPLE_2_4A_CHARGER:
 	case APPLE_2_1A_CHARGER:
 	case APPLE_1_0A_CHARGER:
 	case APPLE_0_5A_CHARGER:
+	case SAMSUNG_CHARGER:
 		pr_info("%s: charger type: %d, %s\n", __func__, type,
 			mtk_chg_type_name[type]);
 		break;
@@ -221,11 +226,19 @@ static int mt_charger_set_property(struct power_supply *psy,
 		} else {
 			/* usb */
 			if ((mtk_chg->chg_type == STANDARD_HOST) ||
-				(mtk_chg->chg_type == CHARGING_HOST) ||
-				(mtk_chg->chg_type == NONSTANDARD_CHARGER))
+				(mtk_chg->chg_type == CHARGING_HOST)) {
+				struct otg_notify *o_notify = get_otg_notify();
+
+				send_otg_notify(o_notify, NOTIFY_EVENT_USB_CABLE, 1);
 				mt_usb_connect();
-			else
+			} else if (mtk_chg->chg_type == NONSTANDARD_CHARGER) {
+				mt_usb_connect();
+			} else {
+				struct otg_notify *o_notify = get_otg_notify();
+
+				send_otg_notify(o_notify, NOTIFY_EVENT_USB_CABLE, 0);
 				mt_usb_disconnect();
+			}
 		}
 	}
 
@@ -250,8 +263,10 @@ static int mt_charger_set_property(struct power_supply *psy,
 				cable_type = SEC_BATTERY_CABLE_USB;
 				break;
 			case STANDARD_CHARGER:
+			case SAMSUNG_CHARGER:
 				cable_type = SEC_BATTERY_CABLE_TA;
 				break;
+			case APPLE_2_4A_CHARGER:
 			case APPLE_2_1A_CHARGER:
 			case APPLE_1_0A_CHARGER:
 				cable_type = SEC_BATTERY_CABLE_TA;

@@ -1920,15 +1920,15 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 						 crtc_mask,
 						 lyeblob_ids->ref_cnt);
 				}
-				if (!lyeblob_ids->ref_cnt) {
-					DDPINFO("free lyeblob:(%d,%d)\n",
+			}
+			if (!lyeblob_ids->ref_cnt) {
+				DDPINFO("free lyeblob:(%d,%d)\n",
 						lyeblob_ids->lye_idx,
 						prop_lye_idx);
-					mtk_crtc_free_lyeblob_ids(crtc,
-							lyeblob_ids);
-					mtk_crtc_free_ddpblob_ids(crtc,
-							lyeblob_ids);
-				}
+				mtk_crtc_free_lyeblob_ids(crtc,
+						lyeblob_ids);
+				mtk_crtc_free_ddpblob_ids(crtc,
+						lyeblob_ids);
 			}
 		}
 	}
@@ -1961,15 +1961,15 @@ static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 					crtc_mask,
 					lyeblob_ids->ref_cnt);
 			}
-			if (!lyeblob_ids->ref_cnt) {
-				DDPINFO("%s:%d free lyeblob:%d\n",
+		}
+		if (!lyeblob_ids->ref_cnt) {
+			DDPINFO("%s:%d free lyeblob:%d\n",
 					__func__, __LINE__,
 					lyeblob_ids->lye_idx);
-				mtk_crtc_free_lyeblob_ids(crtc,
+			mtk_crtc_free_lyeblob_ids(crtc,
 					lyeblob_ids);
-				mtk_crtc_free_ddpblob_ids(crtc,
+			mtk_crtc_free_ddpblob_ids(crtc,
 					lyeblob_ids);
-			}
 		}
 	}
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
@@ -4365,6 +4365,14 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 
 	mtk_drm_crtc_wait_blank(mtk_crtc);
 
+    /* disable engine secure state */
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+	if (index == 2 && mtk_crtc->sec_on) {
+		mtk_crtc_disable_secure_state(crtc);
+		mtk_crtc->sec_on = false;
+	}
+#endif
+
 	mtk_drm_crtc_disable(crtc, true);
 
 	mtk_crtc_disable_plane_setting(mtk_crtc);
@@ -5349,43 +5357,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 				sf_cmdq_cb, sf_cb_data) < 0)
 			DDPPR_ERR("failed to flush sf_cmdq_cb\n");
 	}
-
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SF_PF) &&
-	   (state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1)) {
-		struct cmdq_pkt *cmdq_handle;
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-		struct mtk_cmdq_cb_data *sf_cb_data;
-		dma_addr_t addr;
-
-		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
-		sf_cb_data = kmalloc(sizeof(*sf_cb_data), GFP_KERNEL);
-		if (!sf_cb_data) {
-			DDPPR_ERR("cb data creation failed\n");
-			CRTC_MMP_MARK(index, atomic_flush, 1, 1);
-			goto end;
-		}
-
-		if (index == 0)
-			cmdq_pkt_wfe(cmdq_handle,
-				     mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-
-		addr = cmdq_buf->pa_base + DISP_SLOT_SF_PRESENT_FENCE(index);
-
-		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr,
-			       state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX],
-			       ~0);
-		CRTC_MMP_MARK(index, update_sf_present_fence, 0,
-			      state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX]);
-
-		sf_cb_data->cmdq_handle = cmdq_handle;
-
-		if (cmdq_pkt_flush_threaded(cmdq_handle,
-				sf_cmdq_cb, sf_cb_data) < 0)
-			DDPPR_ERR("failed to flush sf_cmdq_cb\n");
-	}
-
 
 end:
 	/* When open VDS path switch feature, After VDS created

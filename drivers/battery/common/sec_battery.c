@@ -4367,6 +4367,19 @@ static void sec_bat_cable_work(struct work_struct *work)
 		sec_bat_reset_step_charging(battery);
 #endif
 #endif
+
+		if (battery->pdata->pd_comm_cap)
+			if (!battery->pd_list.pd_info[battery->pd_list.now_pd_index].comm_capable
+				|| !battery->pd_list.pd_info[battery->pd_list.now_pd_index].suspend) {
+					pr_info("%s : clear suspend event now_pd_index:%d, comm:%d, suspend:%d\n", __func__,
+						battery->pd_list.now_pd_index,
+						battery->pd_list.pd_info[battery->pd_list.now_pd_index].comm_capable,
+						battery->pd_list.pd_info[battery->pd_list.now_pd_index].suspend);
+					sec_bat_set_current_event(battery, 0, SEC_BAT_CURRENT_EVENT_USB_SUSPENDED);
+					sec_vote(battery->chgen_vote, VOTER_SUSPEND, false, 0);
+					sec_vote(battery->fcc_vote, VOTER_USB_100MA, false, 0);
+					sec_vote(battery->input_vote, VOTER_USB_100MA, false, 0);
+			}
 	}
 #endif
 
@@ -6254,6 +6267,12 @@ static int make_pd_list(struct sec_battery_info *battery)
 		battery->pdic_info.sink_status.power_list[1].max_voltage;
 	battery->pd_list.pd_info[0].max_current =
 		battery->pdic_info.sink_status.power_list[1].max_current;
+	if (battery->pdata->pd_comm_cap) {
+		battery->pd_list.pd_info[0].comm_capable=
+			battery->pdic_info.sink_status.power_list[1].comm_capable;
+		battery->pd_list.pd_info[0].suspend=
+			battery->pdic_info.sink_status.power_list[1].suspend;
+	}
 	battery->pd_list.pd_info[0].pdo_index = 1;
 	pd_list_index++;
 
@@ -6293,6 +6312,10 @@ static int make_pd_list(struct sec_battery_info *battery)
 		battery->pd_list.pd_info[pd_list_index].max_voltage = pSelected_power_list->max_voltage;
 		battery->pd_list.pd_info[pd_list_index].max_current = pSelected_power_list->max_current;
 		battery->pd_list.pd_info[pd_list_index].min_voltage = 0;
+		if (battery->pdata->pd_comm_cap) {
+			battery->pd_list.pd_info[pd_list_index].comm_capable = pSelected_power_list->comm_capable;
+			battery->pd_list.pd_info[pd_list_index].suspend = pSelected_power_list->suspend;
+		}
 		pd_list_index++;
 	}
 
@@ -6344,13 +6367,15 @@ static int make_pd_list(struct sec_battery_info *battery)
 	}
 
 	for (i = 0; i < num_pd_list; i++) {
-		pr_info("%s: Made pd_list[%d] %s[%d,%s] maxVol:%d, minVol:%d, maxCur:%d\n",
+		pr_info("%s: Made pd_list[%d] %s[%d,%s] maxVol:%d, minVol:%d, maxCur:%d, comm:%d, suspend:%d\n",
 			__func__, i, i == pd_list_select ? "**" : " ",
 			battery->pd_list.pd_info[i].pdo_index,
 			battery->pd_list.pd_info[i].apdo ? "APDO" : "FIXED",
 			battery->pd_list.pd_info[i].max_voltage,
 			battery->pd_list.pd_info[i].min_voltage,
-			battery->pd_list.pd_info[i].max_current);
+			battery->pd_list.pd_info[i].max_current,
+			battery->pd_list.pd_info[i].comm_capable,
+			battery->pd_list.pd_info[i].suspend);
 	}
 
 	battery->pd_list.max_pd_count = num_pd_list;

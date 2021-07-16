@@ -1597,6 +1597,10 @@ static ssize_t enabled_store(struct device *dev,
 
 	input_info(true, ilits->dev, "%s: %d %d\n", __func__, buff[0], buff[1]);
 
+	/* handle same sequence : buff[0] = LCD_ON, LCD_DOZE1, LCD_DOZE2*/
+	if (buff[0] == LCD_DOZE1 || buff[0] == LCD_DOZE2)
+		buff[0] = LCD_ON;
+
 	switch (buff[0]) {
 	case SERVICE_SHUTDOWN:
 		ili_dev_remove();

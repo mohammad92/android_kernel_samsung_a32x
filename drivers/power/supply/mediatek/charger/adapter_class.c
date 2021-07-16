@@ -81,6 +81,26 @@ int adapter_dev_get_status(struct adapter_device *adapter_dev,
 }
 EXPORT_SYMBOL(adapter_dev_get_status);
 
+bool adapter_dev_is_src_usb_communication_capable(struct adapter_device *adapter_dev)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->is_src_usb_communication_capable)
+		return adapter_dev->ops->is_src_usb_communication_capable(adapter_dev);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_is_src_usb_communication_capable);
+
+bool adapter_dev_is_src_usb_suspend_support(struct adapter_device *adapter_dev)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->is_src_usb_suspend_support)
+		return adapter_dev->ops->is_src_usb_suspend_support(adapter_dev);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_is_src_usb_suspend_support);
+
 int adapter_dev_get_output(struct adapter_device *adapter_dev, int *mV, int *mA)
 {
 	if (adapter_dev != NULL && adapter_dev->ops != NULL &&

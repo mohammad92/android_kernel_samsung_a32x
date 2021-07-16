@@ -23,6 +23,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/usb_notify.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -52,8 +53,27 @@ static void musb_set_vbus_current_work(struct work_struct *w)
 {
 	struct mtu3 *mtu = container_of(w,
 		struct mtu3, set_vbus_current_work);
+	struct otg_notify *o_notify = get_otg_notify();
+
+	switch (mtu->vbus_current) {
+	case USB_CURRENT_SUSPENDED:
+		/* set vbus current for suspend state is called in usb_notify. */
+		send_otg_notify(o_notify, NOTIFY_EVENT_USBD_SUSPENDED, 1);
+		goto skip;
+	case USB_CURRENT_UNCONFIGURED:
+		send_otg_notify(o_notify, NOTIFY_EVENT_USBD_UNCONFIGURED, 1);
+		break;
+	case USB_CURRENT_HIGH_SPEED:
+	case USB_CURRENT_SUPER_SPEED:
+		send_otg_notify(o_notify, NOTIFY_EVENT_USBD_CONFIGURED, 1);
+		break;
+	default:
+		break;
+	}
 
 	mtu3_set_vbus_current(mtu->vbus_current);
+skip:
+	return;
 }
 #endif
 

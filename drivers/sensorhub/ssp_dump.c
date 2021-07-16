@@ -27,11 +27,10 @@
 
 char *sensorhub_dump;
 int sensorhub_dump_size;
+int sensorhub_dump_type;
 
 void write_ssp_dump_file(struct ssp_data *data, char *dump, int dumpsize, int type)
 {
-	char buffer[2];
-
 	if (dump == NULL) {
 		ssp_errf("dump is NULL");
 		return;
@@ -44,9 +43,9 @@ void write_ssp_dump_file(struct ssp_data *data, char *dump, int dumpsize, int ty
 	}
 	memcpy_fromio(sensorhub_dump, dump, sensorhub_dump_size);
 
-	buffer[0] = SENSORHUB_DUMP_NOTI_EVENT;
-	buffer[1] = type;
-	report_sensorhub_data(data, buffer);
+	ssp_infof("");
+	sensorhub_dump_type = type;
+	queue_work(data->debug_wq, &data->work_dump);
 }
 
 static ssize_t shub_dump_read(struct file *file, struct kobject *kobj,
@@ -63,11 +62,25 @@ struct bin_attribute *ssp_dump_bin_attrs[] = {
 	&bin_attr_shub_dump,
 };
 
+void report_dump_event_task(struct work_struct *work)
+{
+	struct ssp_data *data = container_of((struct work_struct *)work, struct ssp_data, work_dump);
+	char buffer[2];
+
+	ssp_infof("");
+
+	buffer[0] = SENSORHUB_DUMP_NOTI_EVENT;
+	buffer[1] = sensorhub_dump_type;
+	report_sensorhub_data(data, buffer);
+}
+
 void initialize_ssp_dump(struct ssp_data *data)
 {
 	int i, ret;
 
 	ssp_infof();
+
+	INIT_WORK(&data->work_dump, report_dump_event_task);
 
 	sensorhub_dump_size = get_sensorhub_dump_size();
 	if (sensorhub_dump_size == 0)
@@ -103,7 +116,7 @@ void initialize_ssp_dump(struct ssp_data *data)
 void remove_ssp_dump(struct ssp_data *data)
 {
 	int i;
-
+	cancel_work_sync(&data->work_dump);
 	if (!PTR_ERR_OR_ZERO(sensorhub_dump)) {
 		kvfree(sensorhub_dump);
 

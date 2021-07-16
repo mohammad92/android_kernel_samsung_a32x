@@ -180,6 +180,9 @@ struct iwcCmdqMetadata_t {
 
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
+	
+    uint64_t enginesDisablePortSecurity;
+    uint64_t enginesDisableDAPC;
 };
 
 struct iwcCmdqPathResource_t {

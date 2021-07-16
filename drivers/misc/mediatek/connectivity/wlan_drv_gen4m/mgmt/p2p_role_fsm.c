@@ -3453,6 +3453,7 @@ void p2pRoleFsmNotifyEapolTxStatus(IN struct ADAPTER *prAdapter,
 		IN enum ENUM_EAPOL_KEY_TYPE_T rEapolKeyType,
 		IN enum ENUM_TX_RESULT_CODE rTxDoneStatus)
 {
+#if 0 /* finish GC join process when dhcp is done */
 	struct BSS_INFO *prBssInfo = (struct BSS_INFO *) NULL;
 	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
 			(struct P2P_ROLE_FSM_INFO *) NULL;
@@ -3483,6 +3484,39 @@ void p2pRoleFsmNotifyEapolTxStatus(IN struct ADAPTER *prAdapter,
 				prP2pRoleFsmInfo,
 				P2P_ROLE_STATE_IDLE);
 	}
+#endif
+}
+
+void p2pRoleFsmNotifyDhcpDone(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucBssIndex)
+{
+	struct BSS_INFO *prBssInfo = (struct BSS_INFO *) NULL;
+	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
+			(struct P2P_ROLE_FSM_INFO *) NULL;
+
+	if (prAdapter == NULL)
+		return;
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+
+	if (prBssInfo == NULL || prBssInfo->eNetworkType != NETWORK_TYPE_P2P)
+		return;
+
+	prP2pRoleFsmInfo = P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter,
+			prBssInfo->u4PrivateData);
+
+	if (prP2pRoleFsmInfo == NULL)
+		return;
+
+	if (prBssInfo->eCurrentOPMode != OP_MODE_INFRASTRUCTURE)
+		return;
+	if (prP2pRoleFsmInfo->eCurrentState != P2P_ROLE_STATE_GC_JOIN)
+		return;
+
+	/* Finish GC connection process. */
+	p2pRoleFsmStateTransition(prAdapter,
+			prP2pRoleFsmInfo,
+			P2P_ROLE_STATE_IDLE);
 }
 
 static u_int8_t

@@ -42,6 +42,11 @@
 #include "../../codecs/sma1305.h"
 #endif
 
+#ifdef CONFIG_SND_SOC_TAS256X
+#include "../../codecs/tas256x/physical_layer/inc/tas256x.h"
+#include "../../codecs/tas256x/os_layer/inc/tas256x-regmap.h"
+#endif
+
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
 static unsigned int mtk_spk_type;
@@ -84,7 +89,6 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "MT6660_MT_0",
 	},
 #endif /* CONFIG_SND_SOC_MT6660 */
-
 #ifdef CONFIG_SND_SOC_TFA9874
 	[MTK_SPK_NXP_TFA98XX] = {
 		.i2c_probe = tfa98xx_i2c_probe,
@@ -92,7 +96,15 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_dai_name = "tfa98xx-aif",
 		.codec_name = "tfa98xx",
 	},
-#endif /* CONFIG_SND_SOC_MT6660 */
+#endif /* CONFIG_SND_SOC_TFA9874 */
+#ifdef CONFIG_SND_SOC_TAS256X
+	[MTK_SPK_TI_TAS256X] = {
+		.i2c_probe = tas256x_i2c_probe,
+		.i2c_remove = tas256x_i2c_remove,
+		.codec_dai_name = "tas256x ASI1",
+		.codec_name = "tas256x.18-004c",
+	},
+#endif
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
@@ -476,6 +488,9 @@ static const struct i2c_device_id mtk_spk_i2c_id[] = {
 	{ "sma1305", 0},
 #endif
 	{ "speaker_amp", 0},
+#ifdef CONFIG_SND_SOC_TAS256X
+	{ "tas256x", 0},
+#endif
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, mtk_spk_i2c_id);
@@ -490,6 +505,9 @@ static const struct of_device_id mtk_spk_match_table[] = {
 	{.compatible = "siliconmitus,sma1305",},
 #endif
 	{.compatible = "mediatek,speaker_amp",},
+#ifdef CONFIG_SND_SOC_TAS256X
+	{.compatible = "ti,tas256x",},
+#endif
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_spk_match_table);

@@ -246,6 +246,7 @@ struct nvt_ts_data {
 #endif
 	struct sec_cmd_data sec;
 	unsigned int ear_detect_mode;
+	bool ed_reset_flag;
 	long prox_power_off;
 	u8 hover_event;	//virtual_prox
 	bool lcdoff_test;
@@ -310,7 +311,9 @@ enum {
 	SERVICE_SHUTDOWN = -1,
 	LCD_NONE = 0,
 	LCD_OFF,
-	LCD_ON
+	LCD_ON,
+	LCD_DOZE1,
+	LCD_DOZE2
 };
 
 enum {
@@ -508,8 +511,8 @@ int nvt_ts_fw_update_from_external(struct nvt_ts_data *ts, const char *file_path
 int nvt_get_checksum(struct nvt_ts_data *ts, u8 *csum_result, u8 csum_size);
 int32_t nvt_set_page(uint32_t addr);
 #if PROXIMITY_FUNCTION
-int set_ear_detect(struct nvt_ts_data *ts, int mode, bool stored);
-int nvt_ts_mode_switch_extened(struct nvt_ts_data *ts, u8 *cmd, u8 len, bool stored);
+int set_ear_detect(struct nvt_ts_data *ts, int mode);
+int nvt_ts_mode_switch_extened(struct nvt_ts_data *ts, u8 *cmd, u8 len, bool print_log);
 #endif
 
 #if NVT_TOUCH_ESD_PROTECT

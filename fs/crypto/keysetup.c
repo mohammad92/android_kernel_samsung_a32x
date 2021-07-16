@@ -667,9 +667,15 @@ int fscrypt_get_encryption_info(struct inode *inode)
 		(crypt_info->ci_policy.version == FSCRYPT_POLICY_V1) &&
 		crypt_info->ci_policy.v1.contents_encryption_mode == 1) {
 		if (crypt_info->ci_policy.v1.flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) {
+#ifdef CONFIG_FSCRYPT_SDP
+			if (!fscrypt_sdp_protected(&ctx)) {
+#endif
 			res = init_crypt_info_for_hie(inode, crypt_info, key_get(master_key));
 			if (res)
 				goto out;
+#ifdef CONFIG_FSCRYPT_SDP
+			}
+#endif
 		}
 	}
 
@@ -969,6 +975,18 @@ static int derive_fek(struct inode *inode,
 	return res;
 }
 
+int derive_fek_v1(struct inode *inode,
+		struct fscrypt_info *crypt_info,
+		u8 *fek, u32 fek_len)
+{
+	return derive_fek(inode, crypt_info, fek, fek_len);
+}
+
+int derive_essiv_salt_v1(const u8 *key, int keysize, u8 *salt)
+{
+    return derive_essiv_salt(key, keysize, salt);
+}
+
 int fscrypt_get_encryption_key(
 		struct fscrypt_info *crypt_info,
 		struct fscrypt_key *key)
@@ -976,15 +994,41 @@ int fscrypt_get_encryption_key(
 	struct fscrypt_key *kek = NULL;
 	int res;
 
-	if (!crypt_info || !(kek = key))
+	if (!crypt_info)
 		return -EINVAL;
+	//Adding switch case to handle both v1 and v2
+	switch (crypt_info->ci_policy.version) {
+	case FSCRYPT_POLICY_V1:
+		kek = kzalloc(sizeof(struct fscrypt_key), GFP_NOFS);
+		if (!kek)
+			return -ENOMEM;
 
-	res = fscrypt_get_encryption_kek(crypt_info, kek);
+		res = fscrypt_get_encryption_kek(crypt_info, kek);
+		if (res) {
+			kzfree(kek);
+			goto out;
+		}
 
+		res = find_and_derive_v1_file_key(key, crypt_info, kek->raw);
+		kzfree(kek);
+		break;
+	case FSCRYPT_POLICY_V2:
+		if (!(kek = key))
+			return -EINVAL;
+
+		res = fscrypt_get_encryption_kek(crypt_info, kek);
+		break;
+	default:
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+out:
 	return res;
 }
 EXPORT_SYMBOL(fscrypt_get_encryption_key);
 
+// no change for v1 and v2
 int fscrypt_get_encryption_key_classified(
 		struct fscrypt_info *crypt_info,
 		struct fscrypt_key *key)
@@ -1020,8 +1064,18 @@ int fscrypt_get_encryption_kek(
 
 	if (!crypt_info)
 		return -EINVAL;
-
-	res = __find_and_derive_fskey(crypt_info, kek);
+	//switch case for v1 and v2, for v1 call keysetup_v1 function
+	switch (crypt_info->ci_policy.version) {
+	case FSCRYPT_POLICY_V1:
+		res = find_and_derive_v1_fskey(crypt_info, kek);
+		break;
+	case FSCRYPT_POLICY_V2:
+		res = __find_and_derive_fskey(crypt_info, kek);
+		break;
+	default:
+		WARN_ON(1);
+		return -EINVAL;
+	}
 	return res;
 }
 EXPORT_SYMBOL(fscrypt_get_encryption_kek);

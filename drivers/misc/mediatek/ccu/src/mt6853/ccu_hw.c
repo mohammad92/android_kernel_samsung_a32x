@@ -554,7 +554,7 @@ int ccu_run(struct ccu_run_s *info)
 	uint32_t mmu_enable_reg;
 	uint32_t ccu_H2X_MSB;
 	struct CcuMemInfo *bin_mem = ccu_get_binary_memory();
-	MUINT32 remapOffset = bin_mem->mva - CCU_CACHE_BASE;
+	MUINT32 remapOffset;
 	struct shared_buf_map *sb_map_ptr = (struct shared_buf_map *)
 		(dmem_base + OFFSET_CCU_SHARED_BUF_MAP_BASE);
 
@@ -563,6 +563,7 @@ int ccu_run(struct ccu_run_s *info)
 		LOG_ERR("CCU RUN failed, bin_mem NULL\n");
 		return -EINVAL;
 	}
+	remapOffset = bin_mem->mva - CCU_CACHE_BASE;
 	ccu_irq_enable();
 	ccu_H2X_MSB = ccu_read_reg_bit(ccu_base, CTRL, H2X_MSB);
 	ccu_write_reg(ccu_base, AXI_REMAP, remapOffset);
@@ -793,7 +794,7 @@ int ccu_read_info_reg(int regNo)
 	int *offset;
 
 	if (regNo < 0 || regNo >= 32) {
-		LOG_ERR("invalid regNo");
+		LOG_ERR("Invalid regNo : %d\n", regNo);
 		return 0;
 	}
 
@@ -806,7 +807,14 @@ int ccu_read_info_reg(int regNo)
 
 void ccu_write_info_reg(int regNo, int val)
 {
-	int *offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
+	int *offset;
+
+	if (regNo < 0 || regNo >= 32) {
+		LOG_ERR("invalid regNo");
+		return;
+	}
+
+	offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
 	*offset = val;
 	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
 }
@@ -816,7 +824,6 @@ void ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt)
 	int i;
 	int offset = ccu_read_reg(ccu_base, SPREG_10_STRUCT_SIZE_CHECK);
 	uint32_t *ptr = ccu_da_to_va(offset, structCnt*sizeof(uint32_t));
-
 	if (ptr == NULL) {
 		LOG_ERR("%s: ptr null\n", __func__);
 		return;
@@ -1133,7 +1140,7 @@ void *ccu_da_to_va(u64 da, int len)
 	struct CcuMemInfo *bin_mem = ccu_get_binary_memory();
 
 	if (bin_mem == NULL) {
-		LOG_ERR("failed lookup da(%x), bin_mem NULL", da, offset);
+		LOG_ERR("failed lookup da(%x), bin_mem NULL", da);
 		return NULL;
 	}
 	if (da < CCU_CACHE_BASE) {
@@ -1174,7 +1181,7 @@ int ccu_sw_hw_reset(void)
 	ccu_status = ccu_read_reg(ccu_base, CCU_ST);
 	LOG_INF_MUST("[%s] polling CCU halt(0x%08x)\n", __func__, ccu_status);
 	duration = 0;
-	while ((ccu_status & 0x100) != 0x100) {
+	while ((ccu_status & 0x1000) != 0x1000) {
 		duration++;
 		if (duration > 1000) {
 			LOG_ERR("[%s] polling halt, 1ms timeout: (0x%08x)\n",

@@ -45,7 +45,7 @@ static void stui_wq_func(struct work_struct *param)
 	long ret;
 	mutex_lock(&stui_mode_mutex);
 	ret = stui_process_cmd(NULL, STUI_HW_IOCTL_FINISH_TUI, 0);
-	if (ret != STUI_RET_OK)
+	if (ret < 0)
 		pr_err("[STUI] STUI_HW_IOCTL_FINISH_TUI in wq fail: %ld\n", ret);
 	kfree(wq);
 	mutex_unlock(&stui_mode_mutex);

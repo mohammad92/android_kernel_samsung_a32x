@@ -32,6 +32,9 @@ static const char *const mt6853_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 #ifdef CONFIG_SND_SOC_SMA1303
 						  MTK_SPK_SILICON_SM1303_STR,
 #endif
+#ifdef CONFIG_SND_SOC_TAS256X
+						  MTK_SPK_TI_TAS256X_STR,
+#endif
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
 						  MTK_SPK_NXP_TFA98XX_STR

@@ -332,6 +332,7 @@ u_int8_t nic_rxd_v1_sanity_check(
 
 	} else {
 		fgDrop = TRUE;
+
 		if (!HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus)
 		    && HAL_RX_STATUS_IS_TKIP_MIC_ERROR(prRxStatus)) {
 			uint8_t ucBssIndex =
@@ -369,6 +370,18 @@ u_int8_t nic_rxd_v1_sanity_check(
 			if (prSwRfb->u2HeaderLen >= ETH_HLEN
 			    && *pu2EtherType == NTOHS(ETH_P_VLAN))
 				fgDrop = FALSE;
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+			/*
+			 * let qmAmsduAttackDetection check this subframe
+			 * before drop it
+			 */
+			if (prSwRfb->ucPayloadFormat
+				== RX_PAYLOAD_FORMAT_FIRST_SUB_AMSDU) {
+				fgDrop = FALSE;
+				prSwRfb->fgIsFirstSubAMSDULLCMS = TRUE;
+			}
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
 		}
 #else
 		else if (HAL_RX_STATUS_IS_LLC_MIS(prRxStatus)) {
@@ -376,6 +389,8 @@ u_int8_t nic_rxd_v1_sanity_check(
 			fgDrop = TRUE;	/* Drop after send de-auth  */
 		}
 #endif
+
+		DBGLOG(RSN, TRACE, "Sanity check to drop:%d\n", fgDrop);
 	}
 
 	/* Drop plain text during security connection */
@@ -400,6 +415,18 @@ u_int8_t nic_rxd_v1_sanity_check(
 				"Drop plain text during security connection\n");
 		}
 	}
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	/* Drop fragmented broadcast and multicast frame */
+	if ((prSwRfb->fgIsBC | prSwRfb->fgIsMC)	&& (prSwRfb->fgFragFrame == TRUE)) {
+		fgDrop = TRUE;
+		DBGLOG(RSN, INFO,
+			"Drop fragmented broadcast and multicast\n");
+	}
+
+	if (HAL_RX_STATUS_IS_DE_AMSDU_FAIL(prRxStatus))
+		DBGLOG(RSN, INFO, "De-amsdu fail, drop:%d\n", fgDrop);
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
 
 	return fgDrop;
 }

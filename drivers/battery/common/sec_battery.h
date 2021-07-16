@@ -233,6 +233,8 @@ struct sec_bat_pdic_info {
 	unsigned int max_voltage;
 	unsigned int min_voltage;
 	unsigned int max_current;
+	unsigned int comm_capable;
+	unsigned int suspend;
 };
 
 #define MAX_PDO_NUM 8
@@ -625,6 +627,7 @@ typedef struct sec_battery_platform_data {
 	char *fgsrc_switch_name;
 	bool support_fgsrc_change;
 	bool volt_from_pmic;
+	bool pd_comm_cap;
 
 	/* wireless charger */
 	char *wireless_charger_name;

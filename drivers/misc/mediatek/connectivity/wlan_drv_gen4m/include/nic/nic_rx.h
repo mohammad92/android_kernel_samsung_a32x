@@ -862,6 +862,9 @@ struct SW_RFB {
 	u_int8_t fgIsFrag;
 	u_int8_t fgIsFCS;
 	u_int8_t fgIsAmpdu;
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	u_int8_t fgIsFirstSubAMSDULLCMS;
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
 	/* duplicate detection */
 	uint16_t u2FrameCtrl;
 	uint16_t u2SequenceControl;
@@ -1296,6 +1299,12 @@ struct RX_DESC_OPS_T {
 #define RXM_IS_PROTECTED_FRAME(_u2FrameCtrl) \
 	((_u2FrameCtrl & MASK_FC_PROTECTED_FRAME) ? TRUE : FALSE)
 
+#define RXM_IS_TO_DS(_u2FrameCtrl) \
+	(((_u2FrameCtrl & MASK_TO_DS_FROM_DS ) == MASK_FC_TO_DS) ? TRUE : FALSE)
+
+#define RXM_IS_FROM_DS(_u2FrameCtrl) \
+	(((_u2FrameCtrl & MASK_TO_DS_FROM_DS ) == MASK_FC_FROM_DS) ? TRUE : FALSE)
+
 /*******************************************************************************
  *                   F U N C T I O N   D E C L A R A T I O N S
  *******************************************************************************
@@ -1330,6 +1339,9 @@ void nicRxProcessGOBroadcastPkt(IN struct ADAPTER *prAdapter,
 
 void nicRxFillRFB(IN struct ADAPTER *prAdapter,
 	IN OUT struct SW_RFB *prSwRfb);
+
+void nicRxClearFrag(IN struct ADAPTER *prAdapter,
+	IN struct STA_RECORD *prStaRec);
 
 struct SW_RFB *nicRxDefragMPDU(IN struct ADAPTER *prAdapter,
 	IN struct SW_RFB *prSWRfb, OUT struct QUE *prReturnedQue);

@@ -27,9 +27,6 @@
 #include "scp_excep.h"
 #include "scp_feature_define.h"
 #include "scp_l1c.h"
-/* debug use*/
-#include <mt-plat/mtk_io.h>
-
 
 struct scp_dump_st {
 	uint8_t *detail_buff;
@@ -87,23 +84,23 @@ void scp_dump_last_regs(void)
 	c1_m.lr_latch = readl(R_CORE0_T1_MON_LR_LATCH);
 	c1_m.sp_latch = readl(R_CORE0_T1_MON_SP_LATCH);
 
-	pr_err("[SCP] c0_status = %08x\n", c0_m.status);
-	pr_err("[SCP] c0_pc = %08x\n", c0_m.pc);
-	pr_err("[SCP] c0_lr = %08x\n", c0_m.lr);
-	pr_err("[SCP] c0_sp = %08x\n", c0_m.sp);
-	pr_err("[SCP] c0_pc_latch = %08x\n", c0_m.pc_latch);
-	pr_err("[SCP] c0_lr_latch = %08x\n", c0_m.lr_latch);
-	pr_err("[SCP] c0_sp_latch = %08x\n", c0_m.sp_latch);
-	pr_err("[SCP] c1_pc = %08x\n", c1_m.pc);
-	pr_err("[SCP] c1_lr = %08x\n", c1_m.lr);
-	pr_err("[SCP] c1_sp = %08x\n", c1_m.sp);
-	pr_err("[SCP] c1_pc_latch = %08x\n", c1_m.pc_latch);
-	pr_err("[SCP] c1_lr_latch = %08x\n", c1_m.lr_latch);
-	pr_err("[SCP] c1_sp_latch = %08x\n", c1_m.sp_latch);
+	pr_debug("[SCP] c0_status = %08x\n", c0_m.status);
+	pr_debug("[SCP] c0_pc = %08x\n", c0_m.pc);
+	pr_debug("[SCP] c0_lr = %08x\n", c0_m.lr);
+	pr_debug("[SCP] c0_sp = %08x\n", c0_m.sp);
+	pr_debug("[SCP] c0_pc_latch = %08x\n", c0_m.pc_latch);
+	pr_debug("[SCP] c0_lr_latch = %08x\n", c0_m.lr_latch);
+	pr_debug("[SCP] c0_sp_latch = %08x\n", c0_m.sp_latch);
+	pr_debug("[SCP] c1_pc = %08x\n", c1_m.pc);
+	pr_debug("[SCP] c1_lr = %08x\n", c1_m.lr);
+	pr_debug("[SCP] c1_sp = %08x\n", c1_m.sp);
+	pr_debug("[SCP] c1_pc_latch = %08x\n", c1_m.pc_latch);
+	pr_debug("[SCP] c1_lr_latch = %08x\n", c1_m.lr_latch);
+	pr_debug("[SCP] c1_sp_latch = %08x\n", c1_m.sp_latch);
 
 	/* bus tracker reg dump */
-	pr_err("BUS DBG CON: %x\n", readl(SCP_BUS_DBG_CON));
-	pr_err("R %08x %08x %08x %08x %08x %08x %08x %08x\n",
+	pr_debug("BUS DBG CON: %x\n", readl(SCP_BUS_DBG_CON));
+	pr_debug("R %08x %08x %08x %08x %08x %08x %08x %08x\n",
 			readl(SCP_BUS_DBG_AR_TRACK0_L),
 			readl(SCP_BUS_DBG_AR_TRACK1_L),
 			readl(SCP_BUS_DBG_AR_TRACK2_L),
@@ -113,7 +110,7 @@ void scp_dump_last_regs(void)
 			readl(SCP_BUS_DBG_AR_TRACK6_L),
 			readl(SCP_BUS_DBG_AR_TRACK7_L)
 		   );
-	pr_err("W %08x %08x %08x %08x %08x %08x %08x %08x\n",
+	pr_debug("W %08x %08x %08x %08x %08x %08x %08x %08x\n",
 			readl(SCP_BUS_DBG_AW_TRACK0_L),
 			readl(SCP_BUS_DBG_AW_TRACK1_L),
 			readl(SCP_BUS_DBG_AW_TRACK2_L),
@@ -187,7 +184,7 @@ void scp_do_tbufdump(uint32_t *out, uint32_t *out_end)
 		buf += 2;
 	}
 	for (i = 0; i < 32; i++) {
-		pr_err("[SCP] C0:%02d:0x%08x::0x%08x\n",
+		pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
 			i, *(out + i * 2), *(out + i * 2 + 1));
 	}
 	for (i = 0; i < 32; i++) {
@@ -200,7 +197,7 @@ void scp_do_tbufdump(uint32_t *out, uint32_t *out_end)
 		buf += 2;
 	}
 	for (i = 0; i < 32; i++) {
-		pr_err("[SCP] C1:%02d:0x%08x::0x%08x\n",
+		pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
 			i, *(out + 64 + i * 2), *(out + 64 + i * 2 + 1));
 	}
 }
@@ -456,37 +453,5 @@ void scp_excep_cleanup(void)
 	scp_A_task_context_addr = 0;
 
 	pr_debug("[SCP] %s ends\n", __func__);
-}
-
-void scp_dump_last_regs_in_sspm(void)
-{
-	void __iomem *ssc, *gals;
-	void __iomem *busdbg = ioremap_nocache(0x10724150, 0x20);
-	void __iomem *busdbg_ctrl = ioremap_nocache(0x10751000, 0x2000);
-	char tbuf[0x400];
-        /* print latch PC/LR && cur PC/LR */
-        scp_dump_last_regs();
-
-        /* print bus debug register */
-        pr_err("[SCP] bus_dbg_out(0x10724150) = %08x\n", readl(busdbg));
-        pr_err("[SCP] bus_dbg_out_patch(0x10724160) = %08x\n", readl(busdbg + 0x10));
-        pr_err("[SCP] DEBUG_AO_CTRL0(0x10751000) = %08x\n", readl(busdbg_ctrl));
-        pr_err("[SCP] BUS_DBG_CON(0x10752000) = %08x\n", readl(busdbg_ctrl + 0x1000));
-
-        /* print trace buffer */
-        scp_do_tbufdump((void *)(tbuf),
-                (void *)(tbuf + 0x400));
-
-        /* print ssc2x1 reg */
-	ssc = ioremap_nocache(0x1030C000, 0x500);
-	gals = ioremap_nocache(0x10001828, 0x4);
-	pr_err("Infra SSC\n");
-	pr_err("0x1030C100=0x%08x\n", readl(ssc+0x100));
-	pr_err("0x1030C104=0x%08x\n", readl(ssc+0x104));
-	pr_err("0x1030C108=0x%08x\n", readl(ssc+0x108));
-	pr_err("0x1030C400=0x%08x\n", readl(ssc+0x400));
-	pr_err("0x1030C404=0x%08x\n", readl(ssc+0x404));
-	pr_err("0x1030C430=0x%08x\n", readl(ssc+0x430));
-	pr_err("GALS: 0x%08x\n", readl(gals));
 }
 

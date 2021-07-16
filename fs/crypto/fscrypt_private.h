@@ -643,6 +643,27 @@ int fscrypt_setup_v1_file_key(struct fscrypt_info *ci,
 int fscrypt_setup_v1_file_key_via_subscribed_keyrings(struct fscrypt_info *ci);
 
 #ifdef CONFIG_FSCRYPT_SDP
+// functions added for v1 and v2 simultaneous support
+int find_and_derive_v1_fskey_via_subscribed_keyrings(
+					const struct fscrypt_info *ci,
+					struct fscrypt_key *fskey);
+
+int find_and_derive_v1_file_key(
+					struct fscrypt_key *key,
+					struct fscrypt_info *ci,
+					const u8 *raw_master_key);
+
+int find_and_derive_v1_fskey(
+		struct fscrypt_info *crypt_info,
+		struct fscrypt_key *kek);
+
+// In keysetup.c for V1
+int derive_fek_v1(struct inode *inode,
+		struct fscrypt_info *crypt_info,
+		u8 *fek, u32 fek_len);
+
+int derive_essiv_salt_v1(const u8 *key, int keysize, u8 *salt);
+
 static inline bool fscrypt_sdp_protected(const union fscrypt_context *ctx_u) {
 	switch (ctx_u->version) {
 		case FSCRYPT_CONTEXT_V1: {

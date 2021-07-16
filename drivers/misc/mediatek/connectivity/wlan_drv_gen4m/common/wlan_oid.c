@@ -2692,6 +2692,10 @@ wlanoidSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 				"[wlan] Not set the peer key while disconnect\n");
 			return WLAN_STATUS_SUCCESS;
 		}
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+		/* clear fragment cache when rekey */
+		nicRxClearFrag(prAdapter, prStaRec);
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
 	}
 	cmd_size = prChipInfo->u2CmdTxHdrSize +	sizeof(struct CMD_802_11_KEY);
 	prCmdInfo = cmdBufAllocateCmdInfo(prAdapter, cmd_size);
@@ -2937,6 +2941,9 @@ wlanoidSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 							->ucIndex,
 						    prCmdKey->ucAlgorithmId,
 						    prCmdKey->ucKeyId);
+					kalMemCopy(prCmdKey->aucPeerAddr,
+						prBssInfo->prStaRecOfAP
+						->aucMacAddr, MAC_ADDR_LEN);
 				}
 			}
 

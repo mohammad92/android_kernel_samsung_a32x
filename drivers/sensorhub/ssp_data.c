@@ -500,6 +500,9 @@ int save_prox_cal_threshold_data(struct ssp_data *data)
 	} else if (data->prox_cal_mode == 2) {
 		cal_filp = filp_open(PROX_CALIBRATION_FILE_MODE2_PATH,
 				     O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
+	} else {
+		set_fs(old_fs);
+		return -EINVAL;
 	}
 
 	data->prox_cal_mode = 0;
@@ -915,7 +918,7 @@ int save_gyro_cal_data(struct ssp_data *data, s16 *cal_data)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_filp = filp_open(GYRO_CALIBRATION_FILE_PATH, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
+	cal_filp = filp_open(GYRO_CALIBRATION_FILE_PATH, O_CREAT | O_WRONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
 	if (IS_ERR(cal_filp)) {
 		ssp_errf("Can't open calibration file");
 		set_fs(old_fs);
@@ -986,7 +989,7 @@ int accel_open_calibration(struct ssp_data *data)
 	}
 
 	ret = vfs_read(cal_filp, (char *)&data->accelcal, sizeof(data->accelcal), &cal_filp->f_pos);
-	if (ret != 3 * sizeof(int))
+	if (ret != sizeof(data->accelcal))
 		ret = -EIO;
 
 	filp_close(cal_filp, current->files);
@@ -1094,6 +1097,7 @@ exit:
 }
 
 #if defined(CONFIG_SENSORS_SSP_MAGNETIC_MMC5603)
+#define MAG_MMC5603_CALIBRATION_FILE_PATH	   "/efs/FactoryApp/gyro_cal_data"
 int mag_open_calibration(struct ssp_data *data)
 {
 	int ret = 0;
@@ -1104,7 +1108,7 @@ int mag_open_calibration(struct ssp_data *data)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_filp = filp_open(MAG_CALIBRATION_FILE_PATH, O_RDONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
+	cal_filp = filp_open(MAG_MMC5603_CALIBRATION_FILE_PATH, O_RDONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
 	if (IS_ERR(cal_filp)) {
 		set_fs(old_fs);
 		ret = PTR_ERR(cal_filp);
@@ -1114,6 +1118,7 @@ int mag_open_calibration(struct ssp_data *data)
 		return ret;
 	}
 
+	cal_filp->f_pos = sizeof(data->gyrocal);
 	ret = vfs_read(cal_filp, buffer, sizeof(buffer), &cal_filp->f_pos);
 	if (ret != sizeof(buffer)) {
 		ret = -EIO;
@@ -1148,8 +1153,7 @@ int save_mag_cal_data(struct ssp_data *data, u8 *cal_data)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	cal_filp = filp_open(MAG_CALIBRATION_FILE_PATH,
-			     O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
+	cal_filp = filp_open(MAG_MMC5603_CALIBRATION_FILE_PATH, O_CREAT | O_WRONLY | O_NOFOLLOW | O_NONBLOCK, 0660);
 	if (IS_ERR(cal_filp)) {
 		ssp_errf("Can't open calibration file");
 		set_fs(old_fs);
@@ -1157,6 +1161,7 @@ int save_mag_cal_data(struct ssp_data *data, u8 *cal_data)
 		return -EIO;
 	}
 
+	cal_filp->f_pos = sizeof(data->gyrocal);
 	ret = vfs_write(cal_filp, buffer, sizeof(buffer), &cal_filp->f_pos);
 	if (ret != sizeof(buffer)) {
 		ssp_errf("Can't write mag cal to file");

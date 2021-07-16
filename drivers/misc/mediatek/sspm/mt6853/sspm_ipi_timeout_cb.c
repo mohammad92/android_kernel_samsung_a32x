@@ -23,8 +23,6 @@ __weak void mtk_spm_dump_debug_info(void) {}
 __weak void usb_dump_debug_register(void) {}
 __weak void dpmaif_dump_reg(void) {}
 __weak void ccci_md_debug_dump(char *user_info) {}
-/* for scp debug dump */
-extern void scp_dump_last_regs_in_sspm(void);
 
 static char *pin_name[SSPM_IPI_COUNT] = {
 	"PPM",
@@ -55,8 +53,6 @@ void sspm_ipi_timeout_cb(int ipi_id)
 
 	/* for emi debug dump */
 	mtk_emidbg_dump();
-	/* for scp debug dump */
-	scp_dump_last_regs_in_sspm();
 	/* for debug CCCI */
 	ccci_md_debug_dump("sspm");
 

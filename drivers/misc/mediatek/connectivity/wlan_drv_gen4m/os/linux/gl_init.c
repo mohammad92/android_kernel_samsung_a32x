@@ -1737,7 +1737,7 @@ struct net_device_stats *wlanGetStats(IN struct net_device
 	mddpGetMdStats(prDev);
 #endif
 
-	return (struct net_device_stats *) kalGetStats(prDev);
+	return (struct net_device_stats *) &prNetDevPrivate->stats;
 }				/* end of wlanGetStats() */
 
 void wlanDebugInit(void)

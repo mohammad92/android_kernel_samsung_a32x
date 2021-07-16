@@ -815,6 +815,8 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 	iwc_msg->command.metadata.enginesNeedDAPC = data->enginesNeedDAPC;
 	iwc_msg->command.metadata.enginesNeedPortSecurity =
 		data->enginesNeedPortSecurity;
+    iwc_msg->command.metadata.enginesDisableDAPC = 0;
+    iwc_msg->command.metadata.enginesDisablePortSecurity = 0;
 	iwc_msg->command.hNormalTask = (unsigned long)task->pkt;
 
 	iwc_msg->metaex_type = data->client_meta_type;

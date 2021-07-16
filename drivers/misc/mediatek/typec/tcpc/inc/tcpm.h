@@ -416,7 +416,8 @@ enum pd_cable_current_limit {
 
 #define DPM_FLAGS_RESET_PARTNER_MASK	\
 	(DPM_FLAGS_PARTNER_DR_POWER | DPM_FLAGS_PARTNER_DR_DATA|\
-	DPM_FLAGS_PARTNER_EXTPOWER | DPM_FLAGS_PARTNER_USB_COMM)
+	DPM_FLAGS_PARTNER_EXTPOWER | DPM_FLAGS_PARTNER_USB_COMM |\
+	DPM_FLAGS_PARTNER_USB_SUSPEND)
 
 /* DPM_CAPS */
 
@@ -906,6 +907,12 @@ extern uint8_t tcpm_inquire_cable_current(
 	struct tcpc_device *tcpc_dev);
 
 extern uint32_t tcpm_inquire_dpm_flags(
+	struct tcpc_device *tcpc_dev);
+
+extern bool tcpm_is_src_usb_suspend_support(
+	struct tcpc_device *tcpc_dev);
+
+extern bool tcpm_is_src_usb_communication_capable(
 	struct tcpc_device *tcpc_dev);
 
 extern uint32_t tcpm_inquire_dpm_caps(
@@ -1417,6 +1424,18 @@ static inline uint8_t tcpm_inquire_cable_current(
 }
 
 static inline uint32_t tcpm_inquire_dpm_flags(
+	struct tcpc_device *tcpc_dev)
+{
+	return 0;
+}
+
+static inline bool tcpm_is_src_usb_suspend_support(
+	struct tcpc_device *tcpc_dev)
+{
+	return 0;
+}
+
+static inline bool tcpm_is_src_usb_communication_capable(
 	struct tcpc_device *tcpc_dev)
 {
 	return 0;

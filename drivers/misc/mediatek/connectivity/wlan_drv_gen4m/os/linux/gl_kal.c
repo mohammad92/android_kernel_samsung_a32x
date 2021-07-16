@@ -2341,11 +2341,7 @@ uint32_t kalResetStats(IN struct net_device *prDev)
 /*----------------------------------------------------------------------------*/
 void *kalGetStats(IN struct net_device *prDev)
 {
-	struct NETDEV_PRIVATE_GLUE_INFO *prNetDevPrivate;
-
-	prNetDevPrivate = (struct NETDEV_PRIVATE_GLUE_INFO *)
-			netdev_priv(prDev);
-	return (void *) &prNetDevPrivate->stats;
+	return (void *) &prDev->stats;
 }				/* end of wlanGetStats() */
 
 /*----------------------------------------------------------------------------*/
@@ -2808,9 +2804,6 @@ kalQoSFrameClassifierAndPacketInfo(IN struct GLUE_INFO *prGlueInfo,
 	uint8_t ucEthTypeLenOffset = ETHER_HEADER_LEN -
 				     ETHER_TYPE_LEN;
 	uint8_t *pucNextProtocol = NULL;
-#if DSCP_SUPPORT
-	uint8_t ucUserPriority;
-#endif
 
 	u4PacketLen = prSkb->len;
 
@@ -2850,16 +2843,6 @@ kalQoSFrameClassifierAndPacketInfo(IN struct GLUE_INFO *prGlueInfo,
 			       u4PacketLen);
 			break;
 		}
-#if DSCP_SUPPORT
-		if (GLUE_GET_PKT_BSS_IDX(prSkb) != P2P_DEV_BSS_INDEX) {
-			ucUserPriority = getUpFromDscp(
-				prGlueInfo,
-				GLUE_GET_PKT_BSS_IDX(prSkb),
-				(pucNextProtocol[1] >> 2) & 0x3F);
-			if (ucUserPriority != 0xFF)
-				prSkb->priority = ucUserPriority;
-		}
-#endif
 		kalIPv4FrameClassifier(prGlueInfo, prPacket,
 				       pucNextProtocol, prTxPktInfo);
 		break;
@@ -2890,23 +2873,6 @@ kalQoSFrameClassifierAndPacketInfo(IN struct GLUE_INFO *prGlueInfo,
 		kalIPv6FrameClassifier(prGlueInfo, prPacket,
 				       pucNextProtocol, prTxPktInfo);
 #endif
-#endif
-
-#if DSCP_SUPPORT
-		if (GLUE_GET_PKT_BSS_IDX(prSkb) != P2P_DEV_BSS_INDEX) {
-			uint16_t u2Tmp;
-			uint8_t ucIpTos;
-
-			WLAN_GET_FIELD_BE16(pucNextProtocol, &u2Tmp);
-			ucIpTos = u2Tmp >> 4;
-
-			ucUserPriority = getUpFromDscp(
-				prGlueInfo,
-				GLUE_GET_PKT_BSS_IDX(prSkb),
-				(ucIpTos >> 2) & 0x3F);
-			if (ucUserPriority != 0xFF)
-				prSkb->priority = ucUserPriority;
-		}
 #endif
 		break;
 
@@ -3201,7 +3167,7 @@ kalIoctlByBssIdx(IN struct GLUE_INFO *prGlueInfo,
 	if (kalIsResetting())
 		return WLAN_STATUS_SUCCESS;
 
-	if ((!prGlueInfo) || (prGlueInfo->u4ReadyFlag == 0)) {
+	if ((!prGlueInfo) || (!prGlueInfo->prAdapter)) {
 		DBGLOG(OID, WARN, "driver is not ready\n");
 		return WLAN_STATUS_ADAPTER_NOT_READY;
 	}

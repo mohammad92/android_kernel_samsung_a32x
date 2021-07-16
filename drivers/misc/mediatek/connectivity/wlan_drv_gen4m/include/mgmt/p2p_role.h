@@ -489,6 +489,9 @@ void p2pRoleFsmNotifyEapolTxStatus(IN struct ADAPTER *prAdapter,
 		IN enum ENUM_EAPOL_KEY_TYPE_T rEapolKeyType,
 		IN enum ENUM_TX_RESULT_CODE rTxDoneStatus);
 
+void p2pRoleFsmNotifyDhcpDone(IN struct ADAPTER *prAdapter,
+		IN uint8_t ucBssIndex);
+
 void p2pRoleFsmRunEventMgmtTx(IN struct ADAPTER *prAdapter,
 		IN struct MSG_HDR *prMsgHdr);
 

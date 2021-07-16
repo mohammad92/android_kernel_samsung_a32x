@@ -21,7 +21,8 @@ fw-external-$(CONFIG_TOUCHSCREEN_MELFAS_MSS100) += melfas/melfas_mip4_ts.fw
 fw-external-$(CONFIG_TOUCHSCREEN_IST4050) += tsp_imagis/ist40xx_a31.bin
 fw-external-$(CONFIG_TOUCHSCREEN_IST4050) += tsp_imagis/ist40xx_a31_cmcs.bin
 fw-external-$(CONFIG_TOUCHSCREEN_ILITEK_ILI9881X) += tsp_ilitek/ili9881x_a32x.hex tsp_ilitek/ili7806s_a32x.hex
-fw-external-$(CONFIG_SENSORS_A96T3X6_A32X) += abov/a96t356_a32x_main.bin abov/a96t356_a32x_sub.bin
+fw-external-$(CONFIG_SENSORS_A96T3X6_A32X) += abov/a96t356_a32x_main.bin abov/a96t356_a32x_sub.bin \
+					 abov/a96t356_a32x_kor_main.bin abov/a96t356_a32x_kor_sub.bin
 fw-external-$(CONFIG_TOUCHSCREEN_NT36xxx_HOSTDL_SPI) += tsp_novatek/nt36525_a32_sharp.bin tsp_novatek/nt36525_a32_mp_sharp.bin \
 							tsp_novatek/nt36675_a32_ltps.bin tsp_novatek/nt36675_a32_mp_ltps.bin
 fw-external-$(CONFIG_TOUCHSCREEN_STM) += tsp_stm/fts5cu56a_a32.bin

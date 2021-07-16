@@ -98,6 +98,8 @@ struct adapter_ops {
 	int (*resume)(struct adapter_device *dev);
 	int (*get_property)(struct adapter_device *dev,
 		enum adapter_property pro);
+	bool (*is_src_usb_communication_capable)(struct adapter_device *dev);
+	bool (*is_src_usb_suspend_support)(struct adapter_device *dev);
 	int (*get_status)(struct adapter_device *dev,
 		struct adapter_status *sta);
 	int (*set_cap)(struct adapter_device *dev, enum adapter_cap_type type,
@@ -134,6 +136,8 @@ extern struct adapter_device *get_adapter_by_name(
 
 extern int adapter_dev_get_property(struct adapter_device *adapter_dev,
 	enum adapter_property sta);
+extern bool adapter_dev_is_src_usb_suspend_support(struct adapter_device *adapter_dev);
+extern bool adapter_dev_is_src_usb_communication_capable(struct adapter_device *adapter_dev);
 extern int adapter_dev_get_status(struct adapter_device *adapter_dev,
 	struct adapter_status *sta);
 extern int adapter_dev_get_output(struct adapter_device *adapter_dev,

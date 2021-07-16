@@ -915,21 +915,8 @@ void aisFsmStateInit_JOIN(IN struct ADAPTER *prAdapter,
 	prJoinReqMsg->ucSeqNum = ++prAisFsmInfo->ucSeqNumOfReqMsg;
 	prJoinReqMsg->prStaRec = prStaRec;
 
-	if (1) {
-		int j;
-		struct FRAG_INFO *prFragInfo;
+	nicRxClearFrag(prAdapter, prStaRec);
 
-		for (j = 0; j < MAX_NUM_CONCURRENT_FRAGMENTED_MSDUS; j++) {
-			prFragInfo = &prStaRec->rFragInfo[j];
-
-			if (prFragInfo->pr1stFrag) {
-				/* nicRxReturnRFB(prAdapter,
-				 * prFragInfo->pr1stFrag);
-				 */
-				prFragInfo->pr1stFrag = (struct SW_RFB *)NULL;
-			}
-		}
-	}
 #if CFG_SUPPORT_802_11K
 	rlmSetMaxTxPwrLimit(prAdapter,
 			    (prBssDesc->cPowerLimit != RLM_INVALID_POWER_LIMIT)
@@ -2985,8 +2972,9 @@ void aisFsmRunEventJoinComplete(IN struct ADAPTER *prAdapter,
 	cnmMemFree(prAdapter, prMsgHdr);
 }				/* end of aisFsmRunEventJoinComplete() */
 
-void aisHandleTemporaryReject(IN struct ADAPTER *prAdapter,
+bool aisHandleTemporaryReject(IN struct ADAPTER *prAdapter,
 			      IN struct STA_RECORD *prStaRec) {
+#if CFG_SUPPORT_802_11W
 	struct AIS_FSM_INFO *prAisFsmInfo;
 	struct AIS_SPECIFIC_BSS_INFO *prAisSpecificBssInfo;
 	uint8_t ucBssIndex = 0;
@@ -2999,11 +2987,22 @@ void aisHandleTemporaryReject(IN struct ADAPTER *prAdapter,
 		/* record temporarily rejected AP for SA query */
 		prAisSpecificBssInfo->prTargetComebackBssDesc =
 			prAisFsmInfo->prTargetBssDesc;
+		if (prStaRec->u4assocComeBackTime < 500) {
+			DBGLOG(AIS, INFO, "reassign comeback interval from %u msec to 1000TU \n",
+				TU_TO_MSEC(prStaRec->u4assocComeBackTime));
+			prAisFsmInfo->u4SleepInterval = TU_TO_MSEC(1000);
+		} else {
 		prAisFsmInfo->u4SleepInterval =
 			TU_TO_MSEC(prStaRec->u4assocComeBackTime);
+		}
 		DBGLOG(AIS, INFO, "reschedule a comeback timer %u msec\n",
-			TU_TO_MSEC(prStaRec->u4assocComeBackTime));
+			TU_TO_MSEC(prAisFsmInfo->u4SleepInterval));
+		return true;
 	}
+	return false;
+#else
+	return false;
+#endif
 }
 
 enum ENUM_AIS_STATE aisFsmJoinCompleteAction(IN struct ADAPTER *prAdapter,
@@ -3265,14 +3264,10 @@ enum ENUM_AIS_STATE aisFsmJoinCompleteAction(IN struct ADAPTER *prAdapter,
 				if (prStaRec != prAisBssInfo->prStaRecOfAP)
 					cnmStaRecFree(prAdapter, prStaRec);
 
-				if (prAisBssInfo->eConnectionState ==
+				if (aisHandleTemporaryReject(prAdapter, prStaRec)
+					|| prAisBssInfo->eConnectionState ==
 				    MEDIA_STATE_CONNECTED) {
 					struct PARAM_SSID rSsid;
-#if CFG_SUPPORT_802_11W
-					aisHandleTemporaryReject(prAdapter,
-						prStaRec);
-#endif
-
 					/* roaming fail count and time */
 					prAdapter->prGlueInfo->u4RoamFailCnt++;
 					prAdapter->prGlueInfo->u8RoamFailTime =
@@ -3867,6 +3862,12 @@ void aisPostponedEventOfDisconnTimeout(IN struct ADAPTER *prAdapter,
 	bool fgIsPostponeTimeout;
 	enum ENUM_PARAM_CONNECTION_POLICY policy;
 
+#if CFG_SUPPORT_802_11W
+	struct AIS_SPECIFIC_BSS_INFO *prAisSpecificBssInfo;
+
+	prAisSpecificBssInfo = aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
+#endif
+
 	prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
 	/* firstly, check if we have started postpone indication.
 	 ** otherwise, give a chance to do join before indicate to host
@@ -3899,6 +3900,17 @@ void aisPostponedEventOfDisconnTimeout(IN struct ADAPTER *prAdapter,
 		       "DelayTimeOfDisconnect, don't report disconnect\n");
 		return;
 	}
+
+#if CFG_SUPPORT_802_11W
+	/* for temporary reject */
+	if (policy != CONNECT_BY_BSSID && !fgIsPostponeTimeout &&
+		prAisSpecificBssInfo->prTargetComebackBssDesc &&
+		!(prAisFsmInfo->ucConnTrialCount > 5)) {
+		DBGLOG(AIS, INFO,
+			"DelayTimeOfDisconnect for temporary reject, don't report disconnect\n");
+		return;
+	}
+#endif
 
 	/* 4 <2> Remove all connection request */
 	while (fgFound)

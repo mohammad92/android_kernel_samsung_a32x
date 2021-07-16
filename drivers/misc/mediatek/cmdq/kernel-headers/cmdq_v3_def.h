@@ -295,6 +295,11 @@ struct cmdqSecDataStruct {
 
 	/* ISP metadata for secure camera */
 	struct cmdqSecIspMeta ispMeta;
+	uint64_t extension;
+#ifdef MTK_IN_HOUSE_TEE
+    uint32_t secMode;
+#endif
+    bool mtee;
 };
 
 struct cmdq_v3_replace_struct {

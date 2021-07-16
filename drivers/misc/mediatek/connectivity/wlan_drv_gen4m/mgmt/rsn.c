@@ -2920,6 +2920,7 @@ void rsnGenerateWSCIEForAssocRsp(struct ADAPTER *prAdapter,
 	struct WIFI_VAR *prWifiVar = NULL;
 	struct BSS_INFO *prP2pBssInfo = (struct BSS_INFO *)NULL;
 	uint16_t u2IELen = 0;
+	uint8_t ucType = 3;
 
 	prWifiVar = &(prAdapter->rWifiVar);
 
@@ -2929,16 +2930,22 @@ void rsnGenerateWSCIEForAssocRsp(struct ADAPTER *prAdapter,
 	if (prP2pBssInfo->eNetworkType != NETWORK_TYPE_P2P)
 		return;
 
-	u2IELen = kalP2PCalWSC_IELen(prAdapter->prGlueInfo, 3,
+	if (prWifiVar->
+		prP2PConnSettings[prP2pBssInfo->u4PrivateData]->fgIsWPSMode) {
+		DBGLOG(RSN, INFO, "WPS: Building WPS IE by beacon");
+		ucType = 0;
+	}
+
+	u2IELen = kalP2PCalWSC_IELen(prAdapter->prGlueInfo, ucType,
 				     (uint8_t) prP2pBssInfo->u4PrivateData);
 
 	kalP2PGenWSC_IE(prAdapter->prGlueInfo,
-			3,
+			ucType,
 			(uint8_t *) ((unsigned long) prMsduInfo->prPacket +
 				  (unsigned long) prMsduInfo->u2FrameLength),
 			(uint8_t) prP2pBssInfo->u4PrivateData);
 	prMsduInfo->u2FrameLength += (uint16_t) kalP2PCalWSC_IELen(
-					prAdapter->prGlueInfo, 3,
+					prAdapter->prGlueInfo, ucType,
 					(uint8_t) prP2pBssInfo->u4PrivateData);
 }
 

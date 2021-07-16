@@ -17,6 +17,9 @@
 #ifndef __MT6360_PMU_CHG_H
 #define __MT6360_PMU_CHG_H
 
+/* Define this macro if detecting apple samsung TA is needed */
+#define MT6360_APPLE_SAMSUNG_TA_SUPPORT
+
 /* Define this macro if DCD timeout is supported */
 #define CONFIG_MT6360_DCDTOUT_SUPPORT
 

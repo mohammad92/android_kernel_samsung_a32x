@@ -211,8 +211,8 @@ static int accdet_auxadc_offset;
 #ifdef CONFIG_ACCDET_EINT
 static u32 accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
 #endif
-static u32 button_press_debounce = 0x400;
-static u32 button_press_debounce_01 = 0x800;
+static u32 button_press_debounce = 0x200;
+static u32 button_press_debounce_01 = 0x400;
 
 static atomic_t accdet_first;
 

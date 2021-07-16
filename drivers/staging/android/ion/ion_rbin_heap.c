@@ -207,6 +207,7 @@ got_pg:
 	sg = table->sgl;
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
 		sg_set_page(sg, page, page_private(page), 0);
+		sg_dma_len(sg) = sg->length;
 		sg = sg_next(sg);
 		list_del(&page->lru);
 	}

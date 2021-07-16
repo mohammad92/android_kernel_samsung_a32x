@@ -404,7 +404,11 @@ struct cmdqSecDataStruct {
 	struct cmdqSecIspMeta ispMeta;
 
 	/* client extension feature */
-	uint64_t extension;
+    uint64_t extension;
+#ifdef MTK_IN_HOUSE_TEE
+    uint32_t secMode;
+#endif
+    bool mtee;
 };
 
 struct cmdq_v3_replace_struct {

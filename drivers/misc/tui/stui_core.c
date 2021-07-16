@@ -44,7 +44,7 @@ static void stui_write_signature(void)
 
 long stui_process_cmd(struct file *f, unsigned int cmd, unsigned long arg)
 {
-	uint32_t ret = STUI_RET_OK;
+	long ret = 0;
 
 	/* Handle command */
 	switch (cmd) {
@@ -55,7 +55,7 @@ long stui_process_cmd(struct file *f, unsigned int cmd, unsigned long arg)
 		pr_debug("[STUI] STUI_HW_IOCTL_START_TUI called\n");
 
 		if (stui_get_mode() & STUI_MODE_ALL) {
-			ret = STUI_RET_ERR_INTERNAL_ERROR;
+			ret = -EBUSY;
 			break;
 		}
 
@@ -63,7 +63,7 @@ long stui_process_cmd(struct file *f, unsigned int cmd, unsigned long arg)
 		pr_debug("[STUI] Allocating Framebuffer\n");
 		memset(&buffer, 0, sizeof(struct tui_hw_buffer));
 		if (stui_alloc_video_space(&buffer)) {
-			ret = STUI_RET_ERR_INTERNAL_ERROR;
+			ret = -EPERM;
 			break;
 		}
 
@@ -94,13 +94,13 @@ clean_touch_lock:
 
 clean_fb_prepare:
 		stui_free_video_space();
-		ret = STUI_RET_ERR_INTERNAL_ERROR;
+		ret = -EPERM;
 		break;
 	}
 	case STUI_HW_IOCTL_FINISH_TUI: {
 		pr_debug("[STUI] STUI_HW_IOCTL_FINISH_TUI called\n");
 		if (stui_get_mode() == STUI_MODE_OFF) {
-			ret = STUI_RET_ERR_INTERNAL_ERROR;
+			ret = -EPERM;
 			break;
 		}
 		/* Disable STUI driver / Activate linux UI drivers */
@@ -123,7 +123,7 @@ clean_fb_prepare:
 
 		if (copy_to_user(argp, &g_fb_pa, sizeof(uint64_t))) {
 			pr_err("[STUI] copy_to_user failed\n");
-			ret = STUI_RET_ERR_INTERNAL_ERROR;
+			ret = -EFAULT;
 		}
 		break;
 	}
@@ -135,7 +135,7 @@ clean_fb_prepare:
 		pr_debug("[STUI] TUI_HW_IOCTL_GET_RESOLUTION called\n");
 		memset(&buffer, 0, sizeof(struct tui_hw_buffer));
 		if (stui_get_resolution(&buffer)) {
-			ret = STUI_RET_ERR_INTERNAL_ERROR;
+			ret = -EPERM;
 			break;
 		}
 
@@ -144,14 +144,15 @@ clean_fb_prepare:
 
 		if (copy_to_user(argp, &buffer, sizeof(struct tui_hw_buffer))) {
 			pr_err("[STUI] copy_to_user failed\n");
-			ret = STUI_RET_ERR_INTERNAL_ERROR;
+			ret = -EFAULT;
 		}
 		break;
 	}
 	default:
 		pr_err("[STUI] stui_process_cmd(ERROR): Unknown command %d\n", cmd);
-		ret = STUI_RET_ERR_INTERNAL_ERROR;
+		ret = -EINVAL;
 		break;
 	}
+
 	return ret;
 }

@@ -156,6 +156,28 @@ static int pd_get_property(struct adapter_device *dev,
 	return -1;
 }
 
+static bool pd_is_src_usb_suspend_support(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL)
+		return -1;
+
+	return tcpm_is_src_usb_suspend_support(info->tcpc);
+}
+
+static bool pd_is_src_usb_communication_capable(struct adapter_device *dev)
+{
+	struct mtk_pd_adapter_info *info;
+
+	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);
+	if (info == NULL || info->tcpc == NULL)
+		return -1;
+
+	return tcpm_is_src_usb_communication_capable(info->tcpc);
+}
+
 static int pd_set_cap(struct adapter_device *dev, enum adapter_cap_type type,
 		int mV, int mA)
 {
@@ -368,6 +390,8 @@ static struct adapter_ops adapter_ops = {
 	.get_output = pd_get_output,
 	.get_property = pd_get_property,
 	.get_cap = pd_get_cap,
+	.is_src_usb_communication_capable = pd_is_src_usb_communication_capable,
+	.is_src_usb_suspend_support = pd_is_src_usb_suspend_support,
 };
 
 static int adapter_parse_dt(struct mtk_pd_adapter_info *info,

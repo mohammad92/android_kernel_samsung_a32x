@@ -1190,12 +1190,11 @@ scnFsmSchedScanRequest(IN struct ADAPTER *prAdapter,
 	}
 
 	prSchedScanCmd->ucScnFuncMask |= prRequest->ucScnFuncMask;
-	prSchedScanCmd->u2IELen = u2IeLen;
 
 	scnSetSchedScanPlan(prAdapter, prSchedScanCmd,
 				prRequest->u2ScanInterval);
 
-	log_dbg(SCN, INFO, "V(%u)seq(%u)sz(%zu)chT(%u)chN(%u)ssid(%u)match(%u)IE(%u=>%u)MSP(%u),Intv(%d %d),Func(0x%X)\n",
+	log_dbg(SCN, INFO, "V(%u)seq(%u)sz(%zu)chT(%u)chN(%u)ssid(%u)match(%u)IE(%u=>%u)MSP(%u),Intv(%d),Func(0x%X)\n",
 		prSchedScanCmd->ucVersion,
 		prSchedScanCmd->ucSeqNum, sizeof(struct CMD_SCHED_SCAN_REQ),
 		prSchedScanCmd->ucChannelType, prSchedScanCmd->ucChnlNum,
@@ -1203,7 +1202,6 @@ scnFsmSchedScanRequest(IN struct ADAPTER *prAdapter,
 		prRequest->u4IELength, prSchedScanCmd->u2IELen,
 		prSchedScanCmd->ucMspEntryNum,
 		prRequest->u2ScanInterval,
-		prSchedScanCmd->au2MspList[0],
 		prSchedScanCmd->ucScnFuncMask);
 
 	/* 3. send command packet to FW */

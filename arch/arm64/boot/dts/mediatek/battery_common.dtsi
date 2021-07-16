@@ -406,6 +406,7 @@
 		battery,cisd_max_voltage_thr = <5000>; /* batttery ovp dettection voltage */
 
 		battery,volt_from_pmic;
+		battery,pd_comm_cap;
 
 		battery,ttf_hv_charge_current = <2250>;
 		battery,ttf_capacity = <4350>;

@@ -175,6 +175,9 @@ int sec_bat_parse_dt(struct device *dev,
 	pdata->volt_from_pmic = of_property_read_bool(np,
 						     "battery,volt_from_pmic");
 
+	pdata->pd_comm_cap = of_property_read_bool(np,
+						     "battery,pd_comm_cap");
+
 	ret = of_property_read_string(np,
 		"battery,chip_vendor", (char const **)&pdata->chip_vendor);
 	if (ret)

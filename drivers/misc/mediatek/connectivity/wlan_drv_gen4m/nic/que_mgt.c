@@ -611,6 +611,12 @@ void qmDeactivateStaRec(IN struct ADAPTER *prAdapter,
 
 	if (!prStaRec)
 		return;
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+	/* clear fragment cache when reconnect, reassoc, disconnect */
+	nicRxClearFrag(prAdapter, prStaRec);
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
+
 	/* 4 <1> Flush TX queues */
 	if (HAL_IS_TX_DIRECT(prAdapter)) {
 		nicTxDirectClearStaPsQ(prAdapter, prStaRec->ucIndex);
@@ -3231,6 +3237,27 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 			}
 		}
 
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+		if (prCurrSwRfb->fgDataFrame && prCurrSwRfb->prStaRec &&
+			qmAmsduAttackDetection(prAdapter, prCurrSwRfb)) {
+			prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
+			QUEUE_INSERT_TAIL(prReturnedQue,
+				(struct QUE_ENTRY *) prCurrSwRfb);
+			DBGLOG(QM, INFO, "drop AMSDU attack packet\n");
+			continue;
+		}
+
+		if (prCurrSwRfb->fgDataFrame && prCurrSwRfb->prStaRec &&
+			qmDetectRxInvalidEAPOL(prAdapter, prCurrSwRfb)) {
+			prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
+			QUEUE_INSERT_TAIL(prReturnedQue,
+				(struct QUE_ENTRY *) prCurrSwRfb);
+			DBGLOG(QM, INFO,
+				"drop EAPOL packet not in sec mode\n");
+			continue;
+		}
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
+
 #if CFG_SUPPORT_WAPI
 		if (prCurrSwRfb->u2PacketLen > ETHER_HEADER_LEN) {
 			uint8_t *pc = (uint8_t *) prCurrSwRfb->pvHeader;
@@ -3238,6 +3265,7 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 
 			u2Etype = (pc[ETHER_TYPE_LEN_OFFSET] << 8) |
 				  (pc[ETHER_TYPE_LEN_OFFSET + 1]);
+
 			/* for wapi integrity test. WPI_1x packet should be
 			 * always in non-encrypted mode. if we received any
 			 * WPI(0x88b4) packet that is encrypted, drop here.
@@ -3254,7 +3282,6 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 			}
 		}
 #endif
-
 
 		/* Todo:: Move the data class error check here */
 
@@ -3332,7 +3359,7 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 				} else
 					qmHandleRxPackets_AOSP_1;
 			} else {
-				DBGLOG(QM, TRACE,
+				DBGLOG(RX, INFO,
 					"Mark NULL the Packet for class error\n");
 				RX_INC_CNT(&prAdapter->rRxCtrl,
 					RX_CLASS_ERR_DROP_COUNT);
@@ -3386,6 +3413,221 @@ struct SW_RFB *qmHandleRxPackets(IN struct ADAPTER *prAdapter,
 #endif
 
 }
+
+#if CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief qmDetectRxInvalidEAPOL() is used for fake EAPOL checking.
+ *
+ * \param[in] prSwRfb        The RFB which is being processed.
+ *
+ * \return TRUE when we need to drop it
+ */
+/*----------------------------------------------------------------------------*/
+u_int8_t qmDetectRxInvalidEAPOL(IN struct ADAPTER *prAdapter,
+	IN struct SW_RFB *prSwRfb)
+{
+	uint8_t *pucPkt = NULL;
+	uint8_t ucBssIndex;
+	struct BSS_INFO *prBssInfo;
+	uint16_t u2EtherType = 0;
+	u_int8_t fgDrop = FALSE;
+	uint16_t u2SeqCtrl, u2FrameCtrl;
+	uint8_t ucFragNo;
+
+	DEBUGFUNC("qmDetectRxInvalidEAPOL");
+
+	ASSERT(prSwRfb);
+	ASSERT(prSwRfb->prStaRec);
+
+	/* return FALSE if no Header Translation*/
+	if (prSwRfb->fgHdrTran == FALSE)
+		return FALSE;
+
+	if (prSwRfb->u2PacketLen <= ETHER_HEADER_LEN)
+		return FALSE;
+
+	pucPkt = prSwRfb->pvHeader;
+	if (!pucPkt)
+		return FALSE;
+
+	ucBssIndex = prSwRfb->prStaRec->ucBssIndex;
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+
+	/* return FALSE if OP_MODE is not SAP */
+	if (!IS_BSS_ACTIVE(prBssInfo)
+		|| prBssInfo->eCurrentOPMode != OP_MODE_ACCESS_POINT)
+		return FALSE;
+
+	/* return FALSE for this frame is a mid/last fragment*/
+	u2FrameCtrl = HAL_RX_STATUS_GET_FRAME_CTL_FIELD(prSwRfb->prRxStatusGroup4);
+	u2SeqCtrl = HAL_RX_STATUS_GET_SEQFrag_NUM(prSwRfb->prRxStatusGroup4);
+	ucFragNo = (uint8_t) (u2SeqCtrl & MASK_SC_FRAG_NUM);
+	if (prSwRfb->fgFragFrame && ucFragNo != 0)
+		return FALSE;
+
+	u2EtherType = (pucPkt[ETH_TYPE_LEN_OFFSET] << 8)
+			| (pucPkt[ETH_TYPE_LEN_OFFSET + 1]);
+
+	/* return FALSE if EtherType is not EAPOL */
+	if (u2EtherType != ETH_P_1X)
+		return FALSE;
+
+	if ((prSwRfb->eDst
+			== RX_PKT_DESTINATION_HOST_WITH_FORWARD
+		    || prSwRfb->eDst == RX_PKT_DESTINATION_FORWARD)) {
+		/* fgIsTxKeyReady is set by nicEventAddPkeyDone */
+		if (prSwRfb->prStaRec->fgIsTxKeyReady != TRUE) {
+			fgDrop = TRUE;
+		}
+	}
+
+	DBGLOG(QM, TRACE, "QM: qmDetectRxInvalidEAPOL eDst:%d TxKeyReady:%d fgDrop:%d",
+		prSwRfb->eDst, prSwRfb->prStaRec->fgIsTxKeyReady,
+		fgDrop);
+
+	return fgDrop;
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief AMSDU Attack Detection
+ *
+ * \param[in] prSwRfb The RX packet to process
+ *
+ * \return TRUE when we find an amsdu attack
+ */
+/*----------------------------------------------------------------------------*/
+u_int8_t qmAmsduAttackDetection(IN struct ADAPTER *prAdapter,
+	IN struct SW_RFB *prSwRfb)
+{
+	u_int8_t fgDrop = FALSE;
+	uint8_t aucTaAddr[MAC_ADDR_LEN];
+	uint8_t *pucTaAddr = NULL, *pucRaAddr = NULL;
+	uint8_t *pucSaAddr = NULL, *pucDaAddr = NULL;
+	uint8_t *pucAmsduAddr = NULL, *pucCmpAddr = NULL;
+	uint8_t ucBssIndex = 0;
+	struct BSS_INFO *prBssInfo = NULL;
+	struct STA_RECORD *prStaRec = NULL;
+	uint16_t u2FrameCtrl, u2SSN;
+	struct WLAN_MAC_HEADER *prWlanHeader = NULL;
+	uint8_t ucTid;
+	uint8_t *pucPaylod = NULL;
+
+	DEBUGFUNC("qmAmsduAttackDetection");
+
+	ASSERT(prSwRfb);
+
+	prStaRec = prSwRfb->prStaRec;
+	ASSERT(prStaRec);
+
+	/* 802.11 header TA */
+	if (prSwRfb->fgHdrTran) {
+		u2SSN = HAL_RX_STATUS_GET_SEQFrag_NUM(
+			prSwRfb->prRxStatusGroup4) >> RX_STATUS_SEQ_NUM_OFFSET;
+		u2FrameCtrl = HAL_RX_STATUS_GET_FRAME_CTL_FIELD(prSwRfb->prRxStatusGroup4);
+		HAL_RX_STATUS_GET_TA(prSwRfb->prRxStatusGroup4, aucTaAddr);
+		pucTaAddr = &aucTaAddr[0];
+		pucPaylod = prSwRfb->pvHeader;
+	} else {
+		prWlanHeader = (struct WLAN_MAC_HEADER *) prSwRfb->pvHeader;
+		u2SSN = prWlanHeader->u2SeqCtrl >> MASK_SC_SEQ_NUM_OFFSET;
+		u2FrameCtrl = prWlanHeader->u2FrameCtrl;
+		pucTaAddr = prWlanHeader->aucAddr2;
+		pucPaylod = prSwRfb->pvHeader + prSwRfb->u2HeaderLen;
+	}
+
+	/* 802.11 header RA */
+	ucBssIndex = secGetBssIdxByWlanIdx(prAdapter, prSwRfb->ucWlanIdx);
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	pucRaAddr = &prBssInfo->aucOwnMacAddr[0];
+
+	/* DA and SA */
+	pucDaAddr = pucPaylod;
+	pucSaAddr = pucPaylod + MAC_ADDR_LEN;
+
+	if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl)) {
+		ucTid = prSwRfb->ucTid;
+	} else {
+		/* for non-qos data, use TID_NUM as tid */
+		ucTid = TID_NUM;
+	}
+
+	if (prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_MSDU) {
+		return FALSE;
+	} else if (prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_FIRST_SUB_AMSDU) {
+		if (RXM_IS_FROM_DS(u2FrameCtrl)) {
+			/* FromDS frames: A-MSDU DA must match 802.11 header RA */
+			pucCmpAddr = pucDaAddr;
+			pucAmsduAddr = pucRaAddr;
+		} else if (RXM_IS_TO_DS(u2FrameCtrl)) {
+			/* ToDS frames: A-MSDU SA must match 802.11 header TA */
+			pucCmpAddr = pucSaAddr;
+			pucAmsduAddr = pucTaAddr;
+		}
+
+		/* mark to drop amsdu with same SeqNo */
+		if (prSwRfb->fgIsFirstSubAMSDULLCMS) {
+			fgDrop = TRUE;
+			DBGLOG(QM, TRACE,
+				"QM: AMSDU Attack LLC Mismatch.");
+		} else {
+			if (prSwRfb->fgHdrTran) {
+				if (prSwRfb->u2PacketLen <= ETH_HLEN)
+					fgDrop = TRUE;
+			} else {
+				if (prSwRfb->u2PacketLen
+					<= prSwRfb->u2HeaderLen + ETH_HLEN)
+					fgDrop = TRUE;
+			}
+
+			if (fgDrop == TRUE)
+				DBGLOG(QM, TRACE,
+					"QM: AMSDU Attack Unexpected HLen.");
+		}
+
+		if (fgDrop == FALSE &&
+			pucCmpAddr != NULL && pucAmsduAddr != NULL) {
+			if (UNEQUAL_MAC_ADDR(pucCmpAddr, pucAmsduAddr))
+				fgDrop = TRUE;
+
+#define __STR_FMT__ \
+	"QM: FromDS:%d ToDS:%d TID:%u SN:%u PF:%u" \
+	" TA:" MACSTR " RA:" MACSTR " DA:" MACSTR " SA:" MACSTR " Drop:%d"
+			DBGLOG(QM, TRACE,
+				__STR_FMT__,
+				RXM_IS_FROM_DS(u2FrameCtrl),
+				RXM_IS_TO_DS(u2FrameCtrl),
+				ucTid, prSwRfb->u2SSN,
+				prSwRfb->ucPayloadFormat,
+				MAC2STR(pucTaAddr), MAC2STR(pucRaAddr),
+				MAC2STR(pucDaAddr), MAC2STR(pucSaAddr),
+				fgDrop
+				);
+#undef __STR_FMT__
+		}
+
+		prStaRec->afgIsAmsduInvalid[ucTid] = fgDrop;
+		prStaRec->au2AmsduInvalidSN[ucTid] = u2SSN;
+	} else {
+		/* drop it if find an asmdu attack in station record */
+		if (prStaRec->afgIsAmsduInvalid[ucTid] == TRUE
+			&& prStaRec->au2AmsduInvalidSN[ucTid] == u2SSN) {
+			fgDrop = TRUE;
+			DBGLOG(QM, TRACE, "QM: AMSDU Attack TID:%u SN:%u PF:%u",
+				ucTid, prSwRfb->u2SSN, prSwRfb->ucPayloadFormat);
+		}
+
+		/* reset flag when find last subframe */
+		if (prSwRfb->ucPayloadFormat == RX_PAYLOAD_FORMAT_LAST_SUB_AMSDU) {
+			prStaRec->afgIsAmsduInvalid[ucTid] = FALSE;
+			prStaRec->au2AmsduInvalidSN[ucTid] = 0XFFFF;
+		}
+	}
+
+	return fgDrop;
+}
+#endif /* CFG_SUPPORT_FRAG_AGG_ATTACK_DETECTION */
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -7943,18 +8185,13 @@ void qmHandleRxDhcpPackets(struct ADAPTER *prAdapter,
 						sizeof(gatewayIp));
 				return;
 			} else if (prBootp->aucOptions[i + 6] == 0x05) {
-				struct AIS_FSM_INFO *prAisFsmInfo = NULL;
 				uint8_t ucBssIndex =
 					secGetBssIdxByRfb(
 					prAdapter, prSwRfb);
-				prAisFsmInfo =
-					aisGetAisFsmInfo(prAdapter,
-					ucBssIndex);
 				/* Check if join timer is ticking, then release
 				 * channel privilege and stop join timer.
 				 */
 				qmReleaseCHAtFinishedDhcp(prAdapter,
-					&prAisFsmInfo->rJoinTimeoutTimer,
 					ucBssIndex);
 			}
 			dhcpTypeGot = 1;
@@ -8042,9 +8279,7 @@ void qmResetTcControlResource(IN struct ADAPTER *prAdapter)
 }
 #endif
 
-#ifdef CFG_SUPPORT_REPLAY_DETECTION
 /* To change PN number to UINT64 */
-#define CCMPTSCPNNUM	6
 u_int8_t qmRxPNtoU64(uint8_t *pucPN, uint8_t uPNNum,
 	uint64_t *pu64Rets)
 {
@@ -8069,6 +8304,7 @@ u_int8_t qmRxPNtoU64(uint8_t *pucPN, uint8_t uPNNum,
 	return TRUE;
 }
 
+#ifdef CFG_SUPPORT_REPLAY_DETECTION
 /* To check PN/TSC between RxStatus and local record.
  * return TRUE if PNS is not bigger than PNT
  */
@@ -8335,13 +8571,31 @@ void qmHandleDelTspec(struct ADAPTER *prAdapter, struct STA_RECORD *prStaRec,
 }
 
 void qmReleaseCHAtFinishedDhcp(struct ADAPTER *prAdapter,
-	struct TIMER *prTimer, uint8_t ucBssIndex)
+			uint8_t ucBssIndex)
 {
-	if (!timerPendingTimer(prTimer)) {
-		DBGLOG(QM, ERROR, "No channel occupation\n");
-	} else {
-		DBGLOG(QM, INFO, "Dhcp done, stop join timer.\n");
-		cnmTimerStopTimer(prAdapter, prTimer);
-		aisFsmRunEventJoinTimeout(prAdapter, ucBssIndex);
+	struct BSS_INFO *prBssInfo;
+	struct AIS_FSM_INFO *prAisFsmInfo = (struct AIS_FSM_INFO *) NULL;
+
+	if (prAdapter == NULL)
+		return;
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	if (prBssInfo == NULL)
+		return;
+
+	if (IS_BSS_AIS(prBssInfo)) { /* STA */
+		prAisFsmInfo = aisGetAisFsmInfo(prAdapter, ucBssIndex);
+
+		if (!timerPendingTimer(&prAisFsmInfo->rJoinTimeoutTimer)) {
+			DBGLOG(QM, ERROR, "No channel occupation\n");
+		} else {
+			DBGLOG(QM, INFO, "Dhcp done, stop join timer.\n");
+			cnmTimerStopTimer(prAdapter,
+				&prAisFsmInfo->rJoinTimeoutTimer);
+			aisFsmRunEventJoinTimeout(prAdapter, ucBssIndex);
+		}
+	} else if (IS_BSS_P2P(prBssInfo)) { /* GC */
+		DBGLOG(QM, INFO, "Dhcp done, stop GC join timer\n");
+		p2pRoleFsmNotifyDhcpDone(prAdapter, ucBssIndex);
 	}
 }

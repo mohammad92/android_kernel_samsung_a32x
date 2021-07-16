@@ -454,7 +454,7 @@ static int battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 #ifdef CONFIG_BATTERY_SAMSUNG
 		if (val->intval == SEC_FUELGAUGE_CAPACITY_TYPE_RAW) {
-			val->intval = gm.precise_soc;
+			val->intval = gm.precise_soc * 10;
 		} else if (val->intval == SEC_FUELGAUGE_CAPACITY_TYPE_DYNAMIC_SCALE) {
 			val->intval = battery_get_uisoc() * 10;
 			pr_info("%s : ui SOC(%d%%)\n", __func__, val->intval);
@@ -587,37 +587,39 @@ static int battery_get_property(struct power_supply *psy,
 		}
 		break;
 #ifdef CONFIG_BATTERY_SAMSUNG
-		case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
-			switch (ext_psp) {
-			case POWER_SUPPLY_EXT_PROP_PMIC_BAT_VOLTAGE:
-			{
-				int j, k, ocv, ocv_data[10];
+	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:
+		break;
+	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
+		switch (ext_psp) {
+		case POWER_SUPPLY_EXT_PROP_PMIC_BAT_VOLTAGE:
+		{
+			int j, k, ocv, ocv_data[10];
 
-				for (j = 0; j < 10; j++)
-					ocv_data[j] = pmic_get_battery_voltage();
-				for (j = 1; j < 10; j++) {
-					ocv = ocv_data[j];
-					k = j;
-					while (k > 0 && ocv_data[k-1] > ocv) {
-						ocv_data[k] = ocv_data[k-1];
-						k--;
-					}
-					ocv_data[k] = ocv;
+			for (j = 0; j < 10; j++)
+				ocv_data[j] = pmic_get_battery_voltage();
+			for (j = 1; j < 10; j++) {
+				ocv = ocv_data[j];
+				k = j;
+				while (k > 0 && ocv_data[k-1] > ocv) {
+					ocv_data[k] = ocv_data[k-1];
+					k--;
 				}
-				for (j = 0; j < 10; j++)
-					pr_info("%s: [%d] %d\n", __func__, j, ocv_data[j]);
-
-				ocv = 0;
-				for (j = 2; j < 8; j++)
-					ocv += ocv_data[j];
-
-				val->intval = ocv / 6;
+				ocv_data[k] = ocv;
 			}
-				break;
-			default:
-				return -EINVAL;
-			}
+			for (j = 0; j < 10; j++)
+				pr_info("%s: [%d] %d\n", __func__, j, ocv_data[j]);
+
+			ocv = 0;
+			for (j = 2; j < 8; j++)
+				ocv += ocv_data[j];
+
+			val->intval = ocv / 6;
+		}
 			break;
+		default:
+			return -EINVAL;
+		}
+		break;
 #endif
 	default:
 		ret = -EINVAL;
@@ -663,6 +665,10 @@ static int battery_set_property(struct power_supply *psy,
 #endif
 		break;
 #ifdef CONFIG_BATTERY_SAMSUNG
+	case POWER_SUPPLY_PROP_TEMP:
+	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
+	case POWER_SUPPLY_PROP_ONLINE:
+		break;
 	case POWER_SUPPLY_PROP_MAX ... POWER_SUPPLY_EXT_PROP_MAX:
 		switch (ext_psp) {
 		case POWER_SUPPLY_EXT_PROP_BATT_F_MODE:

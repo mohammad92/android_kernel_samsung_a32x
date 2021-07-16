@@ -95,6 +95,8 @@ typedef struct _power_list {
 	int min_voltage;
 	int max_current;
 	int apdo;
+	int comm_capable;
+	int suspend;
 } POWER_LIST;
 
 typedef enum

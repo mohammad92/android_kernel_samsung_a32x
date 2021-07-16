@@ -21,6 +21,7 @@
 #include <linux/battery/battery_notifier.h>
 #endif
 #include "mtk_intf.h"
+#include <tcpm.h>
 
 #define PD_MIN_WATT 5000000
 #define PD_VBUS_IR_DROP_THRESHOLD 1200
@@ -390,6 +391,8 @@ int pdc_get_setting(void)
 		pd_noti.sink_status.power_list[i + 1].max_current = cap->ma[i];
 		pd_noti.sink_status.power_list[i + 1].max_voltage = cap->max_mv[i];
 		pd_noti.sink_status.power_list[i + 1].min_voltage = cap->min_mv[i];
+		pd_noti.sink_status.power_list[i + 1].comm_capable = adapter_is_src_usb_communication_capable();
+		pd_noti.sink_status.power_list[i + 1].suspend = adapter_is_src_usb_suspend_support();
 
 		if (cap->type[i] == MTK_PD_APDO)
 			pd_noti.sink_status.power_list[i + 1].apdo = true;
@@ -398,10 +401,12 @@ int pdc_get_setting(void)
 			pd_noti.sink_status.power_list[i + 1].apdo = false;
 		}
 
-		pr_info("%s : PDO_Num[%d] MAX_CURR(%d) MAX_VOLT(%d), AVAILABLE_PDO_Num(%d)\n", __func__,
+		pr_info("%s : PDO_Num[%d] MAX_CURR(%d) MAX_VOLT(%d), AVAILABLE_PDO_Num(%d), comm(%d), suspend(%d)\n", __func__,
 				i, pd_noti.sink_status.power_list[i + 1].max_current,
 				pd_noti.sink_status.power_list[i + 1].max_voltage,
-				pd_noti.sink_status.available_pdo_num);
+				pd_noti.sink_status.available_pdo_num,
+				pd_noti.sink_status.power_list[i + 1].comm_capable,
+				pd_noti.sink_status.power_list[i + 1].suspend);
 	}
 
 	pd_noti.sink_status.current_pdo_num = selected_idx + 1;

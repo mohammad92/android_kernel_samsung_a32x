@@ -538,8 +538,9 @@ long eeprom_ioctl_control_command(struct stCAM_CAL_INFO_STRUCT *camCalInfo,
 
 	rom_addr = imgsensor_sys_get_rom_addr_by_id(camCalInfo->deviceID, camCalInfo->sensorID);
 	if (rom_addr == NULL) {
-		pr_err("[%s] rom_addr is NULL", __func__);
-		return -EFAULT;
+		pr_err("[%s] rom_addr is NULL: deviceID(0x%x), sensorID(0x%x) doesn't have a cal map, ret: %d",
+			__func__, camCalInfo->deviceID, camCalInfo->sensorID, -ENODATA);
+		return -ENODATA;
 	}
 
 	switch (camCalInfo->command) {
@@ -731,10 +732,12 @@ static long EEPROM_drv_ioctl(struct file *file,
 			ptempbuf->deviceID);
 
 		if (ptempbuf->command != CAM_CAL_COMMAND_NONE) {
-			if (eeprom_ioctl_control_command(ptempbuf, pu1Params, pcmdInf) < 0) {
+			i4RetValue = eeprom_ioctl_control_command(ptempbuf, pu1Params, pcmdInf);
+			if (i4RetValue < 0) {
 				kfree(pBuff);
 				kfree(pu1Params);
-				return -EFAULT;
+				pr_err("[%s] return %d", __func__, i4RetValue);
+				return i4RetValue;
 			}
 			break;
 		}

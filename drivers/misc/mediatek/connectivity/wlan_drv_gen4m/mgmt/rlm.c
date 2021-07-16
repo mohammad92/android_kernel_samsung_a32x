@@ -4807,10 +4807,17 @@ void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 		DBGLOG(RLM, INFO, "[Mgt Action] Measure Request\n");
 		prMeasurementReqIE = SM_MEASUREMENT_REQ_IE(pucIE);
 		if (prMeasurementReqIE->ucId == ELEM_ID_MEASUREMENT_REQ) {
-			prStaRec->ucSmMsmtRequestMode =
-				prMeasurementReqIE->ucRequestMode;
-			prStaRec->ucSmMsmtToken = prMeasurementReqIE->ucToken;
-			msmtComposeReportFrame(prAdapter, prStaRec, NULL);
+			/* Check IE length is valid */
+			if (prMeasurementReqIE->ucLength != 0 &&
+				(prMeasurementReqIE->ucLength >=
+				sizeof(struct IE_MEASUREMENT_REQ) - 2)) {
+				prStaRec->ucSmMsmtRequestMode =
+					prMeasurementReqIE->ucRequestMode;
+				prStaRec->ucSmMsmtToken =
+					prMeasurementReqIE->ucToken;
+				msmtComposeReportFrame(prAdapter, prStaRec,
+							NULL);
+			}
 		}
 
 		break;

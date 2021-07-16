@@ -389,7 +389,7 @@ void scanSetRequestChannel(IN struct ADAPTER *prAdapter,
 
 	if (u4ScanChannelNum == 0) {
 		/* We don't have channel info when u4ScanChannelNum is 0.
-		 * check full2partial bitmap and set scan channels
+		 * directly do full scan
 		 */
 		uint8_t ucPreferBandExist = FALSE;
 		uint32_t start = 1;
@@ -404,38 +404,12 @@ void scanSetRequestChannel(IN struct ADAPTER *prAdapter,
 		}
 
 		u4Index = 0;
-		/* If partial scan list are too old, do full scan */
-		if (!CHECK_FOR_TIMEOUT(rCurrentTime,
-			prScanInfo->u4LastFullScanTime,
-			SEC_TO_SYSTIME(CFG_SCAN_FULL2PARTIAL_PERIOD))) {
-			for (u4Channel = start; u4Channel <= end; u4Channel++) {
-				if (scanIsBitSet(u4Channel,
-					prScanInfo->au4ChannelBitMap,
-					sizeof(prScanInfo->au4ChannelBitMap))) {
-					eBand = (u4Channel <=
-						HW_CHNL_NUM_MAX_2G4) ?
-						BAND_2G4 : BAND_5G;
-					prScanReqMsg->arChnlInfoList[u4Index].
-						ucChannelNum = u4Channel;
-					prScanReqMsg->arChnlInfoList[u4Index].
-						eBand = eBand;
-					scanSetBit(u4Channel, au4ChannelBitMap,
-						sizeof(au4ChannelBitMap));
-					u4Index++;
-				}
-			}
-		}
-
 		prScanReqMsg->ucChannelListNum = u4Index;
 
 		/* No need to change eScanChannel if PreferBand exist */
 		if (!ucPreferBandExist) {
-			if (u4Index == 0) {
-				log_dbg(SCN, WARN, "No channel to scan, set to full scan\n");
-				prScanReqMsg->eScanChannel = SCAN_CHANNEL_FULL;
-			} else
-				prScanReqMsg->eScanChannel =
-						SCAN_CHANNEL_SPECIFIED;
+			log_dbg(SCN, INFO, "No channel to scan, set to full scan\n");
+			prScanReqMsg->eScanChannel = SCAN_CHANNEL_FULL;
 		}
 	} else
 #endif /* CFG_SUPPORT_FULL2PARTIAL_SCAN */
@@ -787,9 +761,9 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 
 		/* Search BSS Desc from current SCAN result list. */
 		LINK_FOR_EACH_ENTRY_SAFE(prBssDesc, prBSSDescNext,
-			prBSSDescList, rLinkEntry, struct BSS_DESC) {				
+			prBSSDescList, rLinkEntry, struct BSS_DESC) {
 			uint8_t i, fgSameSsid;
-		
+
 			if ((u4RemovePolicy & SCN_RM_POLICY_EXCLUDE_CONNECTED)
 				&& (prBssDesc->fgIsConnected
 				|| prBssDesc->fgIsConnecting)) {
@@ -822,7 +796,7 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 			}
 			if (fgSameSsid)
 				continue;
-				
+
 			if (CHECK_FOR_TIMEOUT(rCurrentTime,
 				prBssDesc->rUpdateTime,
 				SEC_TO_SYSTIME(wlanWfdEnabled(prAdapter) ?
@@ -1996,7 +1970,13 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 			uint8_t ucSpatial = 0;
 			uint8_t i = 0;
 			/* end Support AP Selection */
-
+			if (IE_LEN(pucIE) != (sizeof(struct IE_HT_CAP) - 2)) {
+				DBGLOG(SCN, WARN,
+					"HT_CAP wrong length(%d)->(%d)\n",
+					(sizeof(struct IE_HT_CAP) - 2),
+					IE_LEN(prHtCap));
+				break;
+			}
 			prBssDesc->fgIsHTPresent = TRUE;
 
 			/* Support AP Selection */
@@ -2046,6 +2026,14 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 		{
 			struct IE_BSS_LOAD *prBssLoad =
 				(struct IE_BSS_LOAD *)pucIE;
+			if (IE_LEN(prBssLoad) !=
+				(sizeof(struct IE_BSS_LOAD) - 2)) {
+				DBGLOG(SCN, WARN,
+					"BSS_LOAD IE_LEN err(%d)->(%d)!\n",
+					(sizeof(struct IE_BSS_LOAD) - 2),
+					IE_LEN(prBssLoad));
+				break;
+			}
 
 			prBssDesc->u2StaCnt = prBssLoad->u2StaCnt;
 			prBssDesc->ucChnlUtilization =
@@ -2129,6 +2117,11 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 #if (CFG_SUPPORT_HE_ER == 1)
 				if (IE_ID_EXT(pucIE) == ELEM_EXT_ID_HE_CAP) {
 					prHeCap = (struct _IE_HE_CAP_T *) pucIE;
+					if (IE_LEN(prHeCap) == 0) {
+						DBGLOG(SCN, WARN,
+							"HE_CAP IE_LEN = 0!\n");
+						break;
+					}
 					prBssDesc->fgIsHEPresent = TRUE;
 					prBssDesc->ucDCMMaxConRx =
 					HE_GET_PHY_CAP_DCM_MAX_CONSTELLATION_RX(
@@ -2142,6 +2135,11 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 				}
 				if (IE_ID_EXT(pucIE) == ELEM_EXT_ID_HE_OP) {
 					prHeOp = (struct _IE_HE_OP_T *) pucIE;
+					if (IE_LEN(prHeOp) == 0) {
+						DBGLOG(SCN, WARN,
+							"HE_OP IE_LEN = 0!\n");
+						break;
+					}
 					prBssDesc->fgIsERSUDisable =
 					HE_IS_ER_SU_DISABLE(
 						prHeOp->ucHeOpParams);

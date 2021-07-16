@@ -131,6 +131,7 @@ struct mdp_thread {
 	bool acquired;
 	bool allow_dispatch;
 	bool secure;
+	bool mtee;
 };
 
 struct mdp_context {
@@ -639,6 +640,17 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 
 	/* make this thread can be dispath again */
 	mdp_ctx.thread[thread].allow_dispatch = true;
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (!mdp_ctx.thread[thread].task_count &&
+		handle->pkt && handle->pkt->sec_data) {
+		mdp_ctx.thread[thread].mtee =
+			((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee;
+		CMDQ_LOG("%s: handle:%p pkt:%p thread:%d mtee:%d start\n",
+			__func__, handle, handle->pkt, thread,
+			mdp_ctx.thread[thread].mtee);
+	}
+#endif
 	mdp_ctx.thread[thread].task_count++;
 
 	/* assign client since mdp acquire thread after create pkt */
@@ -690,6 +702,15 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 			"true" : "false",
 			mdp_ctx.thread[thread].acquired ? "true" : "false");
 	mdp_ctx.thread[thread].task_count--;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (!mdp_ctx.thread[thread].task_count &&
+		handle->pkt && handle->pkt->sec_data) {
+		CMDQ_LOG("%s: handle:%p pkt:%p thread:%d mtee:%d end\n",
+			__func__, handle, handle->pkt, thread,
+			mdp_ctx.thread[thread].mtee);
+		mdp_ctx.thread[thread].mtee = false;
+	}
+#endif
 
 	/* if no task on thread, release to cmdq core */
 	/* no need to release thread since secure path use static thread */
@@ -842,6 +863,17 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 
 	if (handle->secData.is_secure) {
 		thread = cmdq_mdp_get_sec_thread();
+
+		if (mdp_ctx.thread[thread].task_count &&
+			handle->pkt && handle->pkt->sec_data &&
+			mdp_ctx.thread[thread].mtee !=
+			((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee) {
+			CMDQ_LOG("%s: handle:%p pkt:%p thread:%d mtee:%d run\n",
+				__func__, handle, handle->pkt, thread,
+				mdp_ctx.thread[thread].mtee);
+			return CMDQ_INVALID_THREAD;
+		}
+
 
 		if (threads[thread].task_count >=
 			CMDQ_MAX_SECURE_THREAD_COUNT) {
