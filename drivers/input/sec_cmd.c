@@ -315,7 +315,7 @@ static void sec_cmd_store_function(struct sec_cmd_data *data)
 	}
 
 	sec_cmd_ptr->cmd_func(data);
-
+#ifdef CONFIG_SEC_DEBUG_TSP_LOG
 	if (cmd_found && sec_cmd_ptr->cmd_log) {
 		char tbuf[32];
 		unsigned long long t;
@@ -330,6 +330,7 @@ static void sec_cmd_store_function(struct sec_cmd_data *data)
 
 		sec_debug_tsp_command_history(tbuf);
 	}
+#endif
 }
 
 static ssize_t sec_cmd_store(struct device *dev, struct device_attribute *devattr,
@@ -337,7 +338,9 @@ static ssize_t sec_cmd_store(struct device *dev, struct device_attribute *devatt
 {
 	struct sec_cmd_data *data = dev_get_drvdata(dev);
 	struct command cmd = {{0}};
+#ifdef CONFIG_SEC_DEBUG_TSP_LOG
 	struct sec_cmd *sec_cmd_ptr = NULL;
+#endif
 	int queue_size;
 
 	if (!data) {
@@ -358,7 +361,7 @@ static ssize_t sec_cmd_store(struct device *dev, struct device_attribute *devatt
 	}
 
 	strncpy(cmd.cmd, buf, count);
-
+#ifdef CONFIG_SEC_DEBUG_TSP_LOG
 	list_for_each_entry(sec_cmd_ptr, &data->cmd_list_head, list) {
 		if (!strncmp(cmd.cmd, sec_cmd_ptr->cmd_name, strlen(sec_cmd_ptr->cmd_name))) {
 			if (sec_cmd_ptr->cmd_log) {
@@ -383,7 +386,7 @@ static ssize_t sec_cmd_store(struct device *dev, struct device_attribute *devatt
 			break;
 		}
 	}
-
+#endif
 	mutex_lock(&data->fifo_lock);
 	queue_size = (kfifo_len(&data->cmd_queue) / sizeof(struct command));
 
@@ -722,8 +725,8 @@ void sec_cmd_send_event_to_user(struct sec_cmd_data *data, char *test, char *res
 
 	calltime = ktime_get();
 	realtime = ktime_to_ns(calltime);
-	do_div(realtime, NSEC_PER_USEC);
-	curr_time = realtime / USEC_PER_MSEC;
+	do_div(realtime, NSEC_PER_MSEC);
+	curr_time = (int) realtime;
 
 	snprintf(timestamp, 32, "TIMESTAMP=%d", curr_time);
 	strncat(timestamp, eol, 1);

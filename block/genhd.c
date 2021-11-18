@@ -1488,6 +1488,10 @@ static int iostats_show(struct seq_file *seqf, void *v)
 	struct backing_dev_info *bdi;
 	unsigned int inflight[2];
 
+	unsigned long long uptime_s;
+	unsigned long long uptime_ms;
+	unsigned long long flight_tmp;
+
 	/* Enhanced diskstats for IOD V 2.2 */
 	global_dirty_limits(&bg_thresh, &thresh);
 
@@ -1498,14 +1502,19 @@ static int iostats_show(struct seq_file *seqf, void *v)
 		part_in_flight_rw(gp->queue, hd, inflight);
 		part_stat_unlock();
 		uptime = ktime_to_ns(ktime_get());
-		uptime /= 1000000; /* in ms */
+		do_div(uptime, 1000000);
+		uptime_s = uptime;
+		uptime_ms = do_div(uptime_s, 1000);
+
+		flight_tmp = (unsigned long) gp->queue->in_flight_time;
+		do_div(flight_tmp, USEC_PER_MSEC);
 		bdi = gp->queue->backing_dev_info;
 		seq_printf(seqf, "%4d %7d %s %lu %lu %lu %u "
 				"%lu %lu %lu %u %u %u %u "
 				/* added */
 				"%lu %lu %lu %lu "
 				"%u %llu %lu %lu %lu %u "
-				"%lu.%03lu\n",
+				"%llu.%03llu\n",
 				MAJOR(part_devt(hd)), MINOR(part_devt(hd)),
 				disk_name(gp, hd->partno, buf),
 				part_stat_read(hd, ios[READ]),
@@ -1527,15 +1536,14 @@ static int iostats_show(struct seq_file *seqf, void *v)
 				gp->queue->flush_ios,
 
 				inflight[0], /* read request count */
-				/* hd->io_time_us / USEC_PER_MSEC, */
-				gp->queue->in_flight_time / USEC_PER_MSEC,
+				flight_tmp,
 				PG2KB(thresh),
 				PG2KB(bdi->last_thresh),
 				PG2KB(bdi->last_nr_dirty),
 				jiffies_to_msecs(bdi->paused_total),
 
-				(unsigned long)(uptime / 1000),
-				(unsigned long)(uptime % 1000));
+				uptime_s,
+				uptime_ms);
 	}
 	disk_part_iter_exit(&piter);
 

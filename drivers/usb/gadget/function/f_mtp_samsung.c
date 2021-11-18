@@ -861,7 +861,6 @@ static void interrupt_complete(struct usb_ep *ep, struct usb_request *req)
 	printk(KERN_DEBUG "Finished Writing Interrupt Data\n");
 }
 */
-#ifdef CONFIG_COMPAT
 static ssize_t interrupt_write_config_compat(struct file *fd,
 			const char __user *buf, size_t count)
 {
@@ -903,7 +902,6 @@ static ssize_t interrupt_write_config_compat(struct file *fd,
 						__func__, __LINE__, ret);
 	return ret;
 }
-#endif
 
 static ssize_t interrupt_write(struct file *fd,
 			struct mtp_event *event, size_t count)
@@ -1077,6 +1075,7 @@ static long  mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 	int max_pkt = 0;
 	char *buf_ptr = NULL;
 	char buf[USB_PTPREQUEST_GETSTATUS_SIZE+1] = {0};
+	size_t kernelLongbit = sizeof(long)*8;
 
 	cdev = dev->cdev;
 	if (!cdev) {
@@ -1123,9 +1122,9 @@ static long  mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 		break;
 
 	case MTP_WRITE_INT_DATA:
-		printk(KERN_INFO "[%s]\t%d MTP intrpt_Write no slep\n",
-						__func__, __LINE__);
-						
+		printk(KERN_INFO "[%s]\t%d MTP intrpt_Write no slep, kernel is %zu bits\n",
+							__func__, __LINE__, kernelLongbit);
+
 		if (copy_from_user(&event, (void __user *)arg, sizeof(event))){
 			status = -EFAULT;
 			printk(KERN_ERR "[%s]\t%d:copyfrmuser fail\n",
@@ -1134,13 +1133,13 @@ static long  mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 		}
 		printk(KERN_INFO "[%s]\t%d event length : %zu\n", __func__, __LINE__, event.length);
 
-		if( event.length == MTP_MAX_PACKET_LEN_FROM_APP){
+		if (event.length == MTP_MAX_PACKET_LEN_FROM_APP && kernelLongbit == 64) {
 			ret_value = interrupt_write(fd, &event, MTP_MAX_PACKET_LEN_FROM_APP);
 			if (ret_value < 0) {
 				printk(KERN_ERR "[%s]\t%d interptFD failed : %d\n",
 								 __func__, __LINE__, ret_value);
 				status = -EIO;
-			
+
 			} else {
 				printk(KERN_DEBUG "[%s]\t%d intruptFD suces\n",
 								 __func__, __LINE__);
@@ -1148,7 +1147,6 @@ static long  mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 			}
 		}
 		else{
-#ifdef CONFIG_COMPAT
 			ret_value = interrupt_write_config_compat(fd, (const char *)arg , MTP_MAX_PACKET_LEN_FROM_APP);
 			if (ret_value < 0) {
 				printk(KERN_ERR "[%s]\t%d MTP_WRITE_INT_DATA_CONFIG_COMPAT interptFD failed\n",
@@ -1159,9 +1157,6 @@ static long  mtpg_ioctl(struct file *fd, unsigned int code, unsigned long arg)
 								 __func__, __LINE__);
 				status = MTP_MAX_PACKET_LEN_FROM_APP;
 			}
-#else
-			status = -EIO;
-#endif
 		}
 		break;
 

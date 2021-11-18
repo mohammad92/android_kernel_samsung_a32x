@@ -99,7 +99,9 @@ struct mt6360_fled_data {
 };
 
 struct mt6360_fled_data *g_fled_data;
+#ifdef CONFIG_IMGSENSOR_SYSFS
 extern struct class *camera_class;
+#endif
 struct device *flash_dev;
 
 /******************************************************************************
@@ -849,6 +851,7 @@ int create_flash_sysfs(void)
 {
 	int err = -ENODEV;
 
+#ifdef CONFIG_IMGSENSOR_SYSFS
 	if (IS_ERR_OR_NULL(camera_class)) {
 		pr_err("flash_sysfs: error, camera class not exist\n");
 		return -ENODEV;
@@ -859,6 +862,9 @@ int create_flash_sysfs(void)
 		pr_err("flash_sysfs: failed to create device(flash)\n");
 		return -ENODEV;
 	}
+#else
+	pr_err("flash_sysfs: failed to build sysfs\n");
+#endif
 	err = device_create_file(flash_dev, &dev_attr_rear_flash);
 	if (unlikely(err < 0)) {
 		pr_err("flash_sysfs: failed to create device file, %s\n",

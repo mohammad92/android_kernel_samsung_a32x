@@ -1065,6 +1065,10 @@ static int exec_mmap(struct mm_struct *mm)
 	if (rkp_cred_enable)
 		uh_call(UH_APP_RKP, RKP_KDP_X43, (u64)current_cred(), (u64)mm->pgd, 0, 0);
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if(kdp_enable)
+		uh_call(UH_APP_KDP, SET_CRED_PGD, (u64)current_cred(), (u64)mm->pgd, 0, 0);
+#endif
 	task_unlock(tsk);
 	if (old_mm) {
 		up_read(&old_mm->mmap_sem);
@@ -1409,6 +1413,10 @@ int flush_old_exec(struct linux_binprm * bprm)
 		invalid_drive(bprm)) {
 		panic("\n KDP_NS: Illegal Execution of file #%s#\n", bprm->filename);
 	}
+#endif
+#ifdef CONFIG_RUSTUH_KDP_NS
+	if (kdp_enable && is_kdp_priv_task() && invalid_drive(bprm))
+		panic("[KDP]: Illegal Execution of file #%s#\n", bprm->filename);
 #endif
 	retval = exec_mmap(bprm->mm);
 	if (retval)
@@ -2130,6 +2138,27 @@ SYSCALL_DEFINE3(execve,
 			current->parent->pid, current->parent->comm);
 			putname(path);
 			return -EACCES;
+		}
+	}
+	putname(path);
+#endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	struct filename *path = getname(filename);
+	int error = PTR_ERR(path);
+
+	if(IS_ERR(path))
+		return error;
+
+	if(kdp_enable) {
+		uh_call(UH_APP_KDP, MARK_PPT, (u64)path->name, (u64)current, 0, 0);
+		if (CHECK_ROOT_UID(current)) {
+			if (kdp_restrict_fork(path)) {
+				pr_warn("RKP_KDP Restricted making process. PID = %d(%s) PPID = %d(%s)\n",
+						current->pid, current->comm,
+						current->parent->pid, current->parent->comm);
+				putname(path);
+				return -EACCES;
+			}
 		}
 	}
 	putname(path);

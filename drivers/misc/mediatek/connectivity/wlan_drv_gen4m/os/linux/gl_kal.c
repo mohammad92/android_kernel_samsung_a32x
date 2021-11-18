@@ -1889,6 +1889,45 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 			aisGetTargetBssDesc(prAdapter, ucBssIndex);
 		struct CONNECTION_SETTINGS *prConnSettings =
 			aisGetConnSettings(prAdapter, ucBssIndex);
+		struct GL_WPA_INFO *prWpaInfo =
+			aisGetWpaInfo(prAdapter, ucBssIndex);
+		struct BSS_INFO *prBssInfo =
+			aisGetAisBssInfo(prAdapter, ucBssIndex);
+
+		/* Make sure we remove all WEP key */
+		if (prWpaInfo && prWpaInfo->u4WpaVersion ==
+			IW_AUTH_WPA_VERSION_DISABLED
+			&& prBssInfo && prBssInfo->wepkeyWlanIdx < WTBL_SIZE) {
+			uint32_t keyId;
+			uint32_t u4SetLen;
+			struct PARAM_REMOVE_KEY rRemoveKey;
+
+			for (keyId = 0; keyId <= 3; keyId++) {
+				if (!prBssInfo->wepkeyUsed[keyId])
+					continue;
+
+				rRemoveKey.u4Length =
+					sizeof(struct PARAM_REMOVE_KEY);
+				rRemoveKey.u4KeyIndex = keyId;
+				rRemoveKey.ucBssIdx = ucBssIndex;
+				if (prBssDesc)
+					kalMemCopy(rRemoveKey.arBSSID,
+						prBssDesc->aucBSSID,
+						MAC_ADDR_LEN);
+				else
+					kalMemCopy(rRemoveKey.arBSSID,
+						prConnSettings->aucBSSIDHint,
+						MAC_ADDR_LEN);
+				DBGLOG(INIT, INFO,
+					"JOIN Failure: remove WEP wlanidx: %d, keyid: %d",
+					prBssInfo->wepkeyWlanIdx,
+					rRemoveKey.u4KeyIndex);
+				wlanoidSetRemoveKey(prAdapter,
+					(void *)&rRemoveKey,
+					sizeof(struct PARAM_REMOVE_KEY),
+					&u4SetLen);
+			}
+		}
 
 		if (prBssDesc) {
 			DBGLOG(INIT, INFO, "JOIN Failure: u2JoinStatus=%d",

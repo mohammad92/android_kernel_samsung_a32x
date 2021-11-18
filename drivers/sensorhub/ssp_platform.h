@@ -39,4 +39,10 @@ int sensorhub_comms_write(void* ssp_data, u8* buf, int length, int timeout);
 bool is_sensorhub_working(void *ssp_data);
 
 int sensorhub_refresh_func(void *ssp_data);
+
+#ifdef CONFIG_SENSORS_SSP_DUMP
+void save_ram_dump(void* ssp_data);
+int get_sensorhub_dump_size(void);
+void sensorhub_dump_write_file(void *dump_data, int dump_size);
+#endif
 #endif /* __SSP_PLATFORM_H__ */

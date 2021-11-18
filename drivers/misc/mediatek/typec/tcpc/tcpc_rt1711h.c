@@ -672,6 +672,10 @@ static int rt1711h_set_clock_gating(struct tcpc_device *tcpc_dev,
 			TCPC_REG_ALERT_RX_STATUS |
 			TCPC_REG_ALERT_RX_HARD_RST |
 			TCPC_REG_ALERT_RX_BUF_OVF);
+		ret = rt1711_alert_status_clear(tcpc_dev,
+			TCPC_REG_ALERT_RX_STATUS |
+			TCPC_REG_ALERT_RX_HARD_RST |
+			TCPC_REG_ALERT_RX_BUF_OVF);
 	}
 
 	if (ret == 0)
@@ -1159,12 +1163,14 @@ static int rt1711_set_rx_enable(struct tcpc_device *tcpc, uint8_t enable)
 	if (ret == 0)
 		ret = rt1711_i2c_write8(tcpc, TCPC_V10_REG_RX_DETECT, enable);
 
-	if ((ret == 0) && (!enable))
-		ret = rt1711h_set_clock_gating(tcpc, true);
-
-	/* For testing */
-	if (!enable)
+	if ((ret == 0) && (!enable)) {
+		/*
+		 * do protocal reset to prevent rx sop intterupt
+		 * before set clock gating in detach flow
+		 */
 		rt1711_protocol_reset(tcpc);
+		ret = rt1711h_set_clock_gating(tcpc, true);
+	}
 
 	return ret;
 }

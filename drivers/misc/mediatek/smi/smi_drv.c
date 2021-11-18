@@ -1080,6 +1080,7 @@ static void smi_subsys_after_on(enum subsys_id sys)
 	u32 subsys = smi_subsys_to_larbs[sys];
 	u32 smi_scen = smi_scen_map[smi_drv.scen];
 	s32 i;
+	s32 ret;
 
 	if (!subsys)
 		return;
@@ -1089,9 +1090,14 @@ static void smi_subsys_after_on(enum subsys_id sys)
 	for (i = SMI_DEV_NUM - 1; i >= 0; i--)
 		if (subsys & (1 << i)) {
 			smi_clk_record(i, true, NULL);
-			mtk_smi_clk_enable(smi_dev[i]);
-			mtk_smi_conf_set(smi_dev[i], smi_scen);
-			smi_larb_port_set(smi_dev[i]);
+			ret = mtk_smi_clk_enable(smi_dev[i]);
+			if (!ret) {
+				mtk_smi_conf_set(smi_dev[i], smi_scen);
+				smi_larb_port_set(smi_dev[i]);
+			} else {
+				SMIDBG("Clk failed i:%u, smi_scen=%u\n",
+				i, smi_scen);
+			}
 #if IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
 			if (i == SMI_LARB_NUM)
 				cmdq_pkt_flush_async(smi_cmdq.pkt,

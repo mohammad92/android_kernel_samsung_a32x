@@ -144,8 +144,8 @@ static size_t scp_A_get_last_log(size_t b_len)
 {
 	size_t ret = 0;
 	int scp_awake_flag;
-	unsigned int log_end_idx;
-	unsigned int update_start_idx;
+	size_t log_end_idx;
+	size_t update_start_idx;
 	unsigned char *scp_last_log_buf =
 		(unsigned char *)(SCP_TCM + last_log_info.scp_log_buf_addr);
 
@@ -228,7 +228,8 @@ exit:
 
 ssize_t scp_A_log_read(char __user *data, size_t len)
 {
-	unsigned int w_pos, r_pos, datalen;
+	unsigned int w_pos, r_pos;
+	size_t datalen;
 	char *buf;
 
 	if (!scp_A_logger_inited)
@@ -512,7 +513,8 @@ DEVICE_ATTR(scp_A_get_last_log, 0444, scp_A_last_log_show, NULL);
 static ssize_t scp_A_mobile_log_UT_show(struct device *kobj,
 		struct device_attribute *attr, char *buf)
 {
-	unsigned int w_pos, r_pos, datalen;
+	unsigned int w_pos, r_pos;
+	size_t datalen;
 	char *logger_buf;
 	size_t len = 1024;
 

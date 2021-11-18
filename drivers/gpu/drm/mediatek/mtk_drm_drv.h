@@ -266,5 +266,5 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc);
 int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
-
+extern int mtk_notifier_call_chain(unsigned long val, void *v);
 #endif /* MTK_DRM_DRV_H */

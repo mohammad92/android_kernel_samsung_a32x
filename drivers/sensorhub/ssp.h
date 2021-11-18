@@ -25,12 +25,18 @@
 #include "ssp_type_define.h"
 #include "ssp_platform.h"
 #include "ssp_factory.h"
+
 #define ssp_dbg(fmt, ...) do { \
 	pr_debug("[SSP] " fmt "\n", ##__VA_ARGS__); \
 	} while (0)
 
 #define ssp_info(fmt, ...) do { \
 	pr_info("[SSP] " fmt "\n", ##__VA_ARGS__); \
+	} while (0)
+
+#define ssp_conditional(condition, fmt, ...) do { \
+	if (condition) \
+		pr_info("[SSP] " fmt "\n", ##__VA_ARGS__); \
 	} while (0)
 
 #define ssp_err(fmt, ...) do { \
@@ -63,6 +69,11 @@
 	defined(CONFIG_SENSORS_SSP_PROXIMITY_STK3A5X)
 #define CONFIG_SENSROS_SSP_PROXIMITY_THRESH_CAL
 #endif
+
+#ifdef CONFIG_SENSORS_SSP_PROXIMITY_STK3328
+#define CONFIG_SENSORS_SSP_PROXIMITY_FACTORY_CROSSTALK_CAL
+#endif
+
 #ifdef CONFIG_SENSORS_SSP_PROXIMITY_GP2AP110S
 #define CONFIG_SENSORS_SSP_PROXIMITY_MODIFY_SETTINGS
 #endif
@@ -91,6 +102,12 @@ enum {
 	SSP_ST_RQ_RESET,
 	SSP_ST_ERROR,
 	SSP_ST_MAX,
+};
+
+enum {
+	SSP_LOG_EVENT_TIMESTAMP = 0,
+	SSP_LOG_DATA_PACKET,
+	SSP_LOG_MAX,
 };
 
 struct sensor_value {
@@ -168,8 +185,9 @@ struct sensor_value {
 		};
 		struct { /* light auto brightness */
 			s32 ab_lux;
+			u8 ab_min_flag;
 			u32 ab_brightness;
-		};
+		} __attribute__((__packed__));
 		struct meta_data_event { /* meta data */
 			s32 what;
 			s32 sensor;
@@ -196,14 +214,14 @@ struct magnetic_calibration_data {
 	s32 offset_y;
 	s32 offset_z;
 	s32 radius;
-};
+} __attribute__((__packed__));
 #elif defined(CONFIG_SENSORS_SSP_MAGNETIC_YAS539)
 struct magnetic_calibration_data {
 	s16 offset_x;
 	s16 offset_y;
 	s16 offset_z;
 	u8 accuracy;
-};
+} __attribute__((__packed__));
 #else
 struct magnetic_calibration_data {
 	u8 accuracy;
@@ -213,7 +231,7 @@ struct magnetic_calibration_data {
 	s16 flucv_x;
 	s16 flucv_y;
 	s16 flucv_z;
-};
+} __attribute__((__packed__));
 #endif
 
 struct sensor_info;
@@ -221,6 +239,12 @@ struct sensor_info;
 struct time_info {
 	struct rtc_time tm;
 	u64 timestamp;
+};
+
+struct reset_info_t {
+	u64 timestamp;
+	struct rtc_time time;
+	int reason;
 };
 
 struct sensor_en_info {
@@ -259,6 +283,8 @@ struct ssp_data {
 	int cnt_reset;
 	unsigned int cnt_ssp_reset[RESET_TYPE_MAX + 1]; /* index RESET_TYPE_MAX : total reset cnt */
 	int check_noevent_reset_cnt;
+	struct reset_info_t reset_info;
+	int reset_type;
 
 	struct timer_list ts_sync_timer;
 	struct workqueue_struct *ts_sync_wq;
@@ -288,12 +314,10 @@ struct ssp_data {
 	struct timer_list debug_timer;
 	struct workqueue_struct *debug_wq;
 	struct work_struct work_debug;
-	bool debug_enable;
+	bool debug_enable[SSP_LOG_MAX];
 
 	char last_ap_status;
 	char last_resume_status;
-
-	int reset_type;
 
 	char *sensor_dump[SENSOR_TYPE_MAX];
 	bool is_fs_ready;
@@ -305,7 +329,7 @@ struct ssp_data {
 	struct mutex enable_mutex;
 	uint64_t sensor_probe_state;    /* uSensorState */
 	atomic64_t sensor_en_state;	     /* aSensorEnable */
-	u64 latest_timestamp[SENSOR_TYPE_MAX];
+	u64 latest_timestamp[SS_SENSOR_TYPE_MAX];
 
 	struct sensor_value buf[SENSOR_TYPE_MAX];
 	struct sensor_delay delay[SENSOR_TYPE_MAX];
@@ -355,6 +379,7 @@ struct ssp_data {
 	unsigned char geomag_cntl_regdata;
 	bool is_geomag_raw_enabled;
 	struct magnetic_calibration_data magcal;
+	bool new_magcal;
 #endif
 #ifdef CONFIG_SENSORS_SSP_PROXIMITY
 	struct  proximity_sensor_operations *proximity_ops;
@@ -380,6 +405,11 @@ struct ssp_data {
 	u8 prox_thresh_mode;
 	u8 prox_cal_mode;
 #endif
+#endif
+#ifdef CONFIG_SENSORS_SSP_PROXIMITY_FACTORY_CROSSTALK_CAL
+	u16 prox_cal_add_value;
+	u16 prox_cal_thresh[PROX_THRESH_SIZE];
+	u16 prox_thresh_default[PROX_THRESH_SIZE];
 #endif
 	int prox_trim;
 #endif

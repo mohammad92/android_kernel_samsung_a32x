@@ -168,18 +168,18 @@ typedef enum {
 	MU106_IRQ_MRXPERR,
 	MU106_IRQ_MRXRDY = 7,
 	MU106_IRQ_VCHGIN = 8,
-} afc_int_t;
+} s2mu106_afc_int_t;
 
 typedef enum {
 	MU106_NOT_MASK = 0,
 	MU106_MASK = 1,
-} int_mask_t;
+} s2mu106_int_mask_t;
 
 typedef enum {
 	MU106_QC_PROTOCOL,
 	MU106_AFC_PROTOCOL,
-} protocol_sw_t;
-
+} s2mu106_protocol_sw_t;
+#if 0
 typedef enum {
 	QC_UNKHOWN,
 	QC_5V,
@@ -207,6 +207,7 @@ typedef enum tx_data{
     MUIC_HV_5V = 0,
     MUIC_HV_9V,
 } muic_afc_txdata_t;
+#endif
 
 struct s2mu106_muic_data;
 extern int s2mu106_hv_muic_init(struct s2mu106_muic_data *muic_data);

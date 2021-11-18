@@ -20,6 +20,7 @@ extern void run_action_list(struct device *dev, const char *name, const char **t
 extern void run_timer_from(struct device *dev, const char *name, const char *timer_name, unsigned int ms);
 extern void run_timer_to(struct device *dev, const char *name, const char *timer_name);
 extern int of_gpio_get_active(const char *gpioname);
+extern int of_gpio_abnormal(const char *gpioname);
 extern int of_gpio_get_value(const char *gpioname);
 extern int of_gpio_set_value(const char *gpioname, int value);
 extern int of_get_gpio_with_name(const char *gpioname);

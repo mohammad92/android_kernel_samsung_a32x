@@ -1631,8 +1631,10 @@ static void f2fs_update_max_cp_interval(struct f2fs_sb_info *sbi)
 	if (!priv_cp_time)
 		goto out;
 
-	cp_interval = ((curr_cp_time - priv_cp_time) / CP_TIME_RECORD_UNIT) ?
-		((curr_cp_time - priv_cp_time) / CP_TIME_RECORD_UNIT) : 1;
+	cp_interval = curr_cp_time - priv_cp_time;
+	do_div(cp_interval, CP_TIME_RECORD_UNIT);
+	if (!cp_interval)
+		cp_interval = 1;
 
 	if (sbi->sec_stat.cp_max_interval < cp_interval)
 		sbi->sec_stat.cp_max_interval = cp_interval;

@@ -20,9 +20,10 @@
 #include <linux/usb_notify.h>
 #include <linux/usb/typec/common/pdic_core.h>
 #include <linux/usb/typec/common/pdic_notifier.h>
+#include <linux/usb/typec/common/pdic_param.h>
 #include <linux/muic/common/muic_notifier.h>
 #include <linux/power_supply.h>
-#if IS_MODULE(CONFIG_BATTERY_SAMSUNG)
+#if IS_MODULE(CONFIG_BATTERY_SAMSUNG) || IS_MODULE(CONFIG_BATTERY_SAMSUNG_MODULE)
 #include <linux/battery/sec_battery_common.h>
 #elif defined(CONFIG_BATTERY_SAMSUNG)
 #include "../../../battery/common/sec_charging_common.h"
@@ -47,15 +48,28 @@
 #include <linux/sysfs.h>
 #endif
 
+#if defined(CONFIG_SEC_KUNIT)
+#include <kunit/mock.h>
+#include <kunit/test.h>
+
+kunit_notifier_chain_init(usb_typec_manager_notifier_test_module);
+extern void manager_event_save(struct typec_manager_event_work *event_work);
+int flag_kunit_test;
+
+#else
+#define __visible_for_testing static
+#endif
+
 static int manager_notifier_init_done = 0;
 static int confirm_manager_notifier_register = 0;
-extern unsigned int lpcharge;
 
 static struct device *manager_device;
-static manager_data_t typec_manager;
+__visible_for_testing manager_data_t typec_manager;
+static bool is_hiccup_event_saved = false;
+static bool manager_notify_pdic_battery_init = false;
 
 static int manager_notifier_init(void);
-static void manager_usb_enum_state_check(uint time_ms);
+__visible_for_testing void manager_usb_enum_state_check(uint time_ms);
 #if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
 static void manager_event_processing_by_vbus(bool run);
 #endif
@@ -147,8 +161,9 @@ static void manager_event_notify(struct work_struct *data)
 	switch (event_work->event.dest) {
 	case PDIC_NOTIFY_DEV_BATT:
 		if (event_work->event.sub3 == typec_manager.water.report_type
-			&& manager_check_to_send_water_event(event_work->event))
-			return;
+			&& manager_check_to_send_water_event(event_work->event) && !is_hiccup_event_saved) {
+				return;
+			}
 		break;
 	case PDIC_NOTIFY_DEV_DP:
 	case PDIC_NOTIFY_DEV_USB_DP:
@@ -158,10 +173,24 @@ static void manager_event_notify(struct work_struct *data)
 		break;
 	}
 
+#if defined(CONFIG_SEC_KUNIT)
+	manager_event_save(event_work);
+	if (flag_kunit_test)
+		return;
+#endif
+
 #ifdef CONFIG_USB_NOTIFY_PROC_LOG
 	if (event_work->event.id != PDIC_NOTIFY_ID_POWER_STATUS)
 		store_usblog_notify(NOTIFY_MANAGER, (void *)&(event_work->event), NULL);
 #endif
+
+	if(!manager_notify_pdic_battery_init) {
+		pr_info("%s: pdic battery notifier was not init\n", __func__);
+		is_hiccup_event_saved = true;
+	}
+	else {
+		is_hiccup_event_saved = false;
+	}
 
 	ret = blocking_notifier_call_chain(&(typec_manager.manager_notifier),
 				event_work->event.id, &(event_work->event));
@@ -200,6 +229,11 @@ static void manager_muic_event_notify(struct work_struct *data)
 	pr_info("%s: id:%s sub1:%02x sub2:%02x sub3:%02x\n", __func__,
 		pdic_event_id_string(event_work->event.id),
 		event_work->event.sub1, event_work->event.sub2, event_work->event.sub3);
+#if defined(CONFIG_SEC_KUNIT)
+		manager_event_save(event_work);
+		if (flag_kunit_test)
+			return;
+#endif
 
 #ifdef CONFIG_USB_NOTIFY_PROC_LOG
 	store_usblog_notify(NOTIFY_MANAGER, (void *)&(event_work->event), NULL);
@@ -255,6 +289,11 @@ static void manager_usb_event_send(uint state)
 
 	switch (state) {
 	case USB_STATUS_NOTIFY_ATTACH_UFP:
+		if (typec_manager.usb_factory) {
+			pr_info("%s. usb_factory mode. we don't care cable type\n",
+				__func__);
+			break;
+		}
 		if (typec_manager.classified_cable_type != MANAGER_NOTIFY_MUIC_USB
 				&& typec_manager.classified_cable_type != MANAGER_NOTIFY_MUIC_TIMEOUT_OPEN_DEVICE
 				&& typec_manager.classified_cable_type != MANAGER_NOTIFY_MUIC_OTG) {
@@ -330,8 +369,13 @@ static void manager_usb_enum_state_check_work(struct work_struct *work)
 	}
 }
 
-static void manager_usb_enum_state_check(uint time_ms)
+__visible_for_testing void manager_usb_enum_state_check(uint time_ms)
 {
+	if (typec_manager.usb_factory) {
+		pr_info("%s skip. usb_factory mode.\n", __func__);
+		return;
+	}
+
 	if (typec_manager.usb_enable_state) {
 		if (delayed_work_pending(&typec_manager.usbenumchk_work))
 			cancel_delayed_work(&typec_manager.usbenumchk_work);
@@ -484,7 +528,6 @@ static void manager_set_alternate_mode(int listener)
 		if (typec_manager.alt_is_support == (PDIC_USB|PDIC_BATTERY|PDIC_DELAY_DONE))
 			ppdic_data->set_enable_alternate_mode(ALTERNATE_MODE_READY | ALTERNATE_MODE_START);
 	}
-
 }
 
 static int manager_external_notifier_notification(struct notifier_block *nb,
@@ -554,7 +597,7 @@ static void manager_event_processing_by_vbus_work(struct work_struct *work)
 }
 #endif
 
-static void manager_water_status_update(int status)
+__visible_for_testing void manager_water_status_update(int status)
 {
 		if (status) {	/* attach */
 			if (!typec_manager.water.detected) {
@@ -589,7 +632,7 @@ static void manager_water_status_update(int status)
 		}
 }
 
-static int manager_handle_pdic_notification(struct notifier_block *nb,
+__visible_for_testing int manager_handle_pdic_notification(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
 	MANAGER_NOTI_TYPEDEF p_noti = *(MANAGER_NOTI_TYPEDEF *)data;
@@ -698,7 +741,7 @@ static int manager_handle_pdic_notification(struct notifier_block *nb,
 	return ret;
 }
 
-static int manager_handle_muic_notification(struct notifier_block *nb,
+__visible_for_testing int manager_handle_muic_notification(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
 	PD_NOTI_ATTACH_TYPEDEF p_noti = *(PD_NOTI_ATTACH_TYPEDEF *)data;
@@ -797,16 +840,21 @@ static int manager_handle_muic_notification(struct notifier_block *nb,
 	case ATTACHED_DEV_CDP_MUIC:
 	case ATTACHED_DEV_UNOFFICIAL_ID_USB_MUIC:
 	case ATTACHED_DEV_UNOFFICIAL_ID_CDP_MUIC:
-		pr_info("%s: USB(%d) %s, PDIC: %s\n", __func__,
+		pr_info("%s: USB(%d) %s, PDIC: %s, MODE: %s\n", __func__,
 			p_noti.cable_type, p_noti.attach ? "Attached" : "Detached",
-			typec_manager.pdic_attach_state ? "Attached" : "Detached");
+			typec_manager.pdic_attach_state ? "Attached" : "Detached",
+			typec_manager.usb_factory ? "USB Factory" : "Normal");
 
 		if (p_noti.attach) {
 			typec_manager.classified_cable_type = MANAGER_NOTIFY_MUIC_USB;
-			if (typec_manager.pdic_attach_state)
-				manager_usb_event_send(USB_STATUS_NOTIFY_ATTACH_UFP);
+			if (typec_manager.pdic_attach_state
+					|| typec_manager.usb_factory) {
+				if (typec_manager.manager_dr_state != USB_STATUS_NOTIFY_ATTACH_DFP)
+					manager_usb_event_send(USB_STATUS_NOTIFY_ATTACH_UFP);
+			}
 		} else
-			if (!typec_manager.pdic_attach_state)
+			if (!typec_manager.pdic_attach_state
+					|| typec_manager.usb_factory)
 				manager_usb_event_send(USB_STATUS_NOTIFY_DETACH);
 		break;
 
@@ -876,7 +924,7 @@ static int manager_handle_muic_notification(struct notifier_block *nb,
 }
 
 #if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
-static int manager_handle_vbus_notification(struct notifier_block *nb,
+__visible_for_testing int manager_handle_vbus_notification(struct notifier_block *nb,
 				unsigned long action, void *data)
 {
 	vbus_status_t vbus_type = *(vbus_status_t *)data;
@@ -1031,6 +1079,7 @@ int manager_notifier_register(struct notifier_block *nb, notifier_fn_t notifier,
 #else
 		pr_info("%s: [BATTERY] Registration completed\n", __func__);
 #endif
+		manager_notify_pdic_battery_init = true;
 		manager_set_alternate_mode(listener);
 		break;
 	case MANAGER_NOTIFY_PDIC_SUB_BATTERY:
@@ -1051,6 +1100,12 @@ int manager_notifier_register(struct notifier_block *nb, notifier_fn_t notifier,
 		m_noti.src = PDIC_NOTIFY_DEV_MANAGER;
 		m_noti.dest = PDIC_NOTIFY_DEV_USB;
 		m_noti.id = PDIC_NOTIFY_ID_USB;
+		if (typec_manager.usb_factory) {
+			pr_info("%s. Forced to run usb(usb factory mode)\n",
+				__func__);
+			typec_manager.manager_dr_state = USB_STATUS_NOTIFY_ATTACH_UFP;
+		}
+		
 		if (typec_manager.manager_dr_state) {
 			m_noti.sub1 = PDIC_NOTIFY_ATTACH;
 			m_noti.sub2 = typec_manager.manager_dr_state;
@@ -1144,8 +1199,13 @@ static void delayed_manger_notifier_init(struct work_struct *work)
 	}
 
 	if (confirm_manager_notifier_register & (1 << MUIC_NOTIFIER)) {
+#if IS_ENABLED(CONFIG_CABLE_TYPE_NOTIFIER)
+		ret = cable_type_notifier_register(&typec_manager.cable_type_nb,
+				manager_cable_type_handle_notification, CABLE_TYPE_NOTIFY_DEV_USB);
+#else
 		ret = muic_notifier_register(&typec_manager.muic_nb,
 				manager_handle_muic_notification, MUIC_NOTIFY_DEV_MANAGER);
+#endif
 		if (ret)
 			notifier_result |= (1 << MUIC_NOTIFIER);
 	}
@@ -1167,14 +1227,11 @@ static void delayed_manger_notifier_init(struct work_struct *work)
 
 static void managet_dp_status_init(void)
 {
-	struct device_node *np = NULL;
-
 	typec_manager.dp.is_connect = 0;
 	typec_manager.dp.hs_connect = 0;
 	typec_manager.dp.check_done = 1;
 
-	np = of_find_node_by_name(NULL, "displayport");
-	if (!of_get_property(np, "dp,displayport_not_support", NULL)) {
+	if (IS_ENABLED(CONFIG_SEC_DISPLAYPORT)) {
 		pr_info("%s: usb_host: support DP\n", __func__);
 		typec_manager.dp.is_support = 1;
 	} else {
@@ -1289,6 +1346,7 @@ static int manager_notifier_init(void)
 	typec_manager.alt_is_support = 0;
 	strncpy(typec_manager.fac_control,
 		"On_All", sizeof(typec_manager.fac_control)-1);
+	typec_manager.usb_factory = check_factory_mode_boot();
 
 #if defined(CONFIG_USB_HW_PARAM)
 	manager_hw_param_init();
@@ -1301,7 +1359,7 @@ static int manager_notifier_init(void)
 	typec_manager.pdic_rid_state = RID_UNDEFINED;
 	typec_manager.pd = NULL;
 #if (IS_ENABLED(CONFIG_HICCUP_CHARGER) || IS_ENABLED(CONFIG_SEC_HICCUP)) && IS_ENABLED(CONFIG_BATTERY_SAMSUNG)
-	typec_manager.water.report_type = lpcharge ?
+	typec_manager.water.report_type = is_lpcharge_pdic_param() ?
 		ATTACHED_DEV_UNDEFINED_RANGE_MUIC :
 		ATTACHED_DEV_HICCUP_MUIC;
 #else
@@ -1364,9 +1422,13 @@ static int manager_notifier_init(void)
 		schedule_delayed_work(&typec_manager.manager_init_work,
 			msecs_to_jiffies(NOTIFIER_REG_RETRY));
 
-#if defined(CONFIG_DRV_SAMSUNG) && defined(CONFIG_SEC_FACTORY)
+#if IS_ENABLED(CONFIG_DRV_SAMSUNG) && defined(CONFIG_SEC_FACTORY)
 	/* create sysfs group */
 	ret = sysfs_create_group(&manager_device->kobj, &typec_manager_sysfs_group);
+#endif
+
+#if defined(CONFIG_SEC_KUNIT)
+	kunit_notifier_chain_register(usb_typec_manager_notifier_test_module);
 #endif
 
 	pr_info("%s end\n", __func__);
@@ -1388,6 +1450,9 @@ static void __exit manager_notifier_exit(void)
 	muic_notifier_unregister(&typec_manager.muic_nb);
 #endif
 	usb_external_notify_unregister(&typec_manager.manager_external_notifier_nb);
+#if defined(CONFIG_SEC_KUNIT)
+	kunit_notifier_chain_unregister(usb_typec_manager_notifier_test_module);
+#endif
 }
 
 device_initcall(manager_notifier_init);

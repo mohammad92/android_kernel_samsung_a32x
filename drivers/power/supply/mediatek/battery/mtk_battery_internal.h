@@ -732,10 +732,12 @@ struct mtk_battery {
 	int soc;
 	int precise_soc;
 	int ui_soc;
+	int precise_ui_soc;
 	int d_saved_car;
 	int tbat_precise;
 	int tbat_adc;
 	int is_fake_soc;
+	int is_full;
 
 /*battery flag*/
 	bool init_flag;

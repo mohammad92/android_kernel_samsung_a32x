@@ -12,6 +12,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/syscalls.h>
 #include <drm/drmP.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
@@ -786,6 +787,8 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	}
 	mutex_nested_time_start = sched_clock();
 
+	mtk_crtc->need_lock_tid = sys_gettid();
+
 	ret = drm_atomic_helper_swap_state(state, 0);
 	if (ret) {
 		DDPPR_ERR("DRM swap state failed! state:%p, ret:%d\n",
@@ -826,6 +829,7 @@ err_mutex_unlock:
 	}
 	DRM_MMP_EVENT_END(mutex_lock, 0, 0);
 
+	mtk_crtc->need_lock_tid = 0;
 	mutex_unlock(&private->commit.lock);
 
 #if CONFIG_SMCDSD_PANEL
@@ -3075,6 +3079,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 
 	private->uevent_data.name = "lcm_disconnect";
 	uevent_dev_register(&private->uevent_data);
+	mtk_notifier_activate();
 
 	return 0;
 

@@ -45,6 +45,9 @@
 #ifdef CONFIG_MTK_DFD_INTERNAL_DUMP
 #include <mtk_platform_debug.h>
 #endif
+#ifdef CONFIG_SEC_DEBUG
+#include <linux/sec_debug.h>
+#endif
 
 static int crashing_cpu;
 
@@ -167,7 +170,9 @@ static void mrdump_stop_noncore_cpu(void *unused)
 		elf_core_copy_kernel_regs(
 			(elf_gregset_t *)&crash_record->cpu_regs[cpu], &regs);
 		crash_save_cpu((struct pt_regs *)&regs, cpu);
-
+#ifdef CONFIG_SEC_DEBUG
+		sec_save_context(cpu, (struct pt_regs *)&regs);
+#endif	
 		creg = (void *)&crash_record->cpu_creg[cpu];
 
 		mrdump_save_control_register(creg);
@@ -261,6 +266,9 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 			/* null regs, no register dump */
 			if (regs) {
 				crash_save_cpu(regs, cpu);
+#ifdef CONFIG_SEC_DEBUG
+				sec_save_context(cpu, regs);
+#endif					
 				elf_core_copy_kernel_regs(
 					(elf_gregset_t *)
 					&crash_record->cpu_regs[cpu],

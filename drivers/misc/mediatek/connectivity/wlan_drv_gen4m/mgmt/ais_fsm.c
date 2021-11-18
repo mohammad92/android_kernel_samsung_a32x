@@ -495,7 +495,7 @@ void aisFsmInit(IN struct ADAPTER *prAdapter, uint8_t ucBssIndex)
 		   sizeof(prAisSpecificBssInfo->arCurEssChnlInfo));
 	LINK_INITIALIZE(&prAisSpecificBssInfo->rCurEssLink);
 	/* end Support AP Selection */
-	LINK_INITIALIZE(&prAisSpecificBssInfo->rPmkidCache);
+	LINK_INITIALIZE(&prAisBssInfo->rPmkidCache);
 	/* 11K, 11V */
 	LINK_MGMT_INIT(&prAisSpecificBssInfo->rNeighborApList);
 	kalMemZero(&prAisSpecificBssInfo->rBTMParam,
@@ -3825,6 +3825,18 @@ aisIndicationOfMediaStateToHost(IN struct ADAPTER *prAdapter,
 			    prAisBssInfo->ucReasonOfDisconnect;
 		}
 
+		if (prAisBssInfo->ucReasonOfDisconnect ==
+			DISCONNECT_REASON_CODE_RADIO_LOST ||
+			prAisBssInfo->ucReasonOfDisconnect ==
+			DISCONNECT_REASON_CODE_RADIO_LOST_TX_ERR) {
+			scanRemoveBssDescByBssid(prAdapter,
+						 prAisBssInfo->aucBSSID);
+
+			/* remove from scanning results as well */
+			wlanClearBssInScanningResult(prAdapter,
+							 prAisBssInfo->aucBSSID);
+		}
+
 		/* 4 <2> Indication */
 		nicMediaStateChange(prAdapter,
 				    prAisBssInfo->ucBssIndex,
@@ -4455,23 +4467,59 @@ void aisFsmDisconnect(IN struct ADAPTER *prAdapter,
 			u2ReasonCode =
 				prAisBssInfo->prStaRecOfAP->u2ReasonCode;
 		}
-		if (prAisBssInfo->ucReasonOfDisconnect ==
-			DISCONNECT_REASON_CODE_RADIO_LOST ||
-		    prAisBssInfo->ucReasonOfDisconnect ==
-			DISCONNECT_REASON_CODE_RADIO_LOST_TX_ERR) {
-			scanRemoveBssDescByBssid(prAdapter,
-						 prAisBssInfo->aucBSSID);
-
-			/* remove from scanning results as well */
-			wlanClearBssInScanningResult(prAdapter,
-						     prAisBssInfo->aucBSSID);
-		} else {
 			scanRemoveConnFlagOfBssDescByBssid(prAdapter,
 				prAisBssInfo->aucBSSID);
 			prBssDesc = aisGetTargetBssDesc(prAdapter, ucBssIndex);
 			if (prBssDesc) {
 				prBssDesc->fgIsConnected = FALSE;
 				prBssDesc->fgIsConnecting = FALSE;
+			if (prAisBssInfo->ucReasonOfDisconnect ==
+				DISCONNECT_REASON_CODE_RADIO_LOST ||
+				prAisBssInfo->ucReasonOfDisconnect ==
+				DISCONNECT_REASON_CODE_RADIO_LOST_TX_ERR) {
+				struct SCAN_INFO *prScanInfo;
+				struct AIS_SPECIFIC_BSS_INFO *prAisSpeBssInfo;
+				struct LINK *prBSSDescList;
+				struct LINK *prEssLink = NULL;
+				struct BSS_DESC *prBssDesc2;
+
+				DBGLOG(AIS, ERROR, "[mtk]0x%x "MACSTR" BTO",
+					prBssDesc,
+					prBssDesc->aucBSSID);
+
+				prAisSpeBssInfo =
+					aisGetAisSpecBssInfo(prAdapter, ucBssIndex);
+				prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+				prBSSDescList = &prScanInfo->rBSSDescList;
+				prEssLink = &prAisSpeBssInfo->rCurEssLink;
+				LINK_FOR_EACH_ENTRY(prBssDesc2, prBSSDescList,
+					rLinkEntry, struct BSS_DESC) {
+
+					if (EQUAL_MAC_ADDR(prBssDesc2->aucBSSID,
+						prAisBssInfo->aucBSSID)) {
+						prBssDesc2->fgIsInBTO = TRUE;
+						DBGLOG(AIS, ERROR,
+							"[mtk]0x%x "MACSTR" 1 IsInBTO=%d",
+							prBssDesc2,
+							prBssDesc2->aucBSSID,
+							prBssDesc2->fgIsInBTO);
+							break;
+					}
+				}
+				LINK_FOR_EACH_ENTRY(prBssDesc2, prEssLink,
+					rLinkEntryEss[ucBssIndex], struct BSS_DESC) {
+
+					if (EQUAL_MAC_ADDR(prBssDesc2->aucBSSID,
+						prAisBssInfo->aucBSSID)) {
+						prBssDesc2->fgIsInBTO = TRUE;
+						DBGLOG(AIS, ERROR,
+							"[mtk]0x%x "MACSTR" 2 IsInBTO=%d",
+							prBssDesc2,
+							prBssDesc2->aucBSSID,
+							prBssDesc2->fgIsInBTO);
+							break;
+					}
+				}
 			}
 		}
 
@@ -6597,7 +6645,7 @@ struct AIS_BLACKLIST_ITEM *aisQueryBlackList(struct ADAPTER *prAdapter,
 
 	LINK_FOR_EACH_ENTRY(prEntry, prBlackList, rLinkEntry,
 			    struct AIS_BLACKLIST_ITEM) {
-		if (EQUAL_MAC_ADDR(prBssDesc->aucBSSID, prEntry) &&
+		if (EQUAL_MAC_ADDR(prBssDesc->aucBSSID, prEntry->aucBSSID) &&
 		    EQUAL_SSID(prBssDesc->aucSSID, prBssDesc->ucSSIDLen,
 			       prEntry->aucSSID, prEntry->ucSSIDLen)) {
 			prBssDesc->prBlack = prEntry;

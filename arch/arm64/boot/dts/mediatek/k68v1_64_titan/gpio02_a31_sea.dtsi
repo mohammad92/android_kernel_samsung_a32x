@@ -27,10 +27,23 @@
 &auxadc {
 	adc_channel@ {
 		compatible = "mediatek,adc_channel";
-		mediatek,adc_fdd_rf_params_dynamic_custom_ch = <2>;
+		mediatek,adc_fdd_rf_params_dynamic_custom_ch = <0>;
+		mediatek,board_id = <2>;
 		mediatek,temperature0 = <4>;
 		status = "okay";
 	};
+};
+
+&md_auxadc {
+	io-channels = <&auxadc 0>;
+};
+
+&tboard_thermistor1 {
+	io-channels = <&auxadc 4>;
+};
+
+&tboard_thermistor2 {
+	io-channels = <&auxadc 0>;
 };
 
 
@@ -57,53 +70,34 @@
 	mediatek,use-open-drain;
 };
 
-&pio {
-	if_pmic_irq: if_pmic_irq {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
-			slew-rate = <1>;
-			bias-disable;
-			output-high;
-		};
-	};
-	usbpd_irq: usbpd_irq {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
-			slew-rate = <1>;
-			bias-disable;
-			output-high;
-		};
-	};
-};
-
 &i2c3 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	clock-frequency = <400000>;
-	mediatek,use-open-drain;
 	s2mu106@3D {
-		status = "okay";
-		compatible = "samsung,s2mu106mfd";
-		reg = <0x3D>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&if_pmic_irq>;
-		s2mu106,irq-gpio = <&pio 7 1>;
-		s2mu106,wakeup;
-	};
-	usbpd-s2mu106@3C {
-		compatible = "sec-usbpd,i2c";
-		reg = <0x3C>;
-		pinctrl-names = "default";
-		pinctrl-0     = <&usbpd_irq>;
-		usbpd,usbpd_int = <&pio 0 0>;
+		flash_led {
+			default_current = <50>;
+			max_current = <200>;
+			default_timer = <0>;
+			flash-gpio = <&pio 151 0>;
+			torch-gpio = <&pio 31 0>;
+
+			flash_current = <1500>;
+			preflash_current = <200>;
+			movie_current = <200>;
+			torch_current = <90>;
+			factory_current = <350>;
+			flashlight_current = <50 75 135 175 220>;
+
+			s2mu106-channel1 {
+				id = <0>;
+			};
+		};
 	};
 };
 
 &i2c5 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	clock-frequency = <3400000>;
-	mediatek,use-push-pull;
+/*	clock-frequency = <3400000>; */
+/*	mediatek,use-push-pull; */
 };
 
 &i2c6 {
@@ -336,6 +330,45 @@
 		<186 0 0 0 1 0 0>;
 };
 
+&gpio{
+	gpio_init_default_samsung = 
+		<6 0 0 0 1 0 0>,	/* BTP_IRQ */
+		<18 0 0 0 1 0 0>,	/* HALL_INT - NC */
+		<20 0 1 0 1 0 0>,	/* FCAM_RST_N */
+		<25 0 1 0 0 2 0>,	/* LCD_EN_1P8 */
+		<27 0 1 0 1 0 0>,	/* RCAM3_RST_N */
+		<28 0 0 0 1 0 0>,	/* FG_ERR */
+		<29 0 1 0 1 0 0>,	/* RCAM4_DVDD_1P2_EN */
+		<30 0 0 0 0 0 0>,
+		<39 0 0 0 0 0 0>,
+		<76 0 0 0 0 0 0>,		
+		<46 0 0 0 1 0 0>,	/* NC */
+		<78 0 0 0 1 0 0>,
+		<44 1 0 0 1 0 0>,	/* DISP_TE */
+		<45 0 1 0 0 2 0>,	/* OCTA_RST_N */
+		<54 0 0 0 1 0 0>,	/* PCD_INT */
+		<58 0 0 0 1 0 0>,	/* NC */
+		<91 0 1 0 1 0 0>,	/* MIPI_SEL */
+		<92 0 0 0 0 2 0>,	/* LCD_DET for FD */
+		<97 0 0 0 1 0 0>,	/* NC */
+		<98 0 1 0 1 0 0>,	/* RCAM4_AVDD_2P8_EN */
+		<101 0 1 0 1 0 0>,	/* RCAM2_RST_N */
+		<102 0 1 0 1 0 0>,	/* RCAM1_RST_N */
+		<107 0 0 0 1 0 0>,	/* NC */
+		<109 0 1 0 1 0 0>,	/* RCAM4_RST_N */
+		<110 0 0 0 1 0 0>,	/* NC */
+		<112 0 0 0 1 0 0>,	/* NC */
+		<113 0 1 0 1 0 0>,	/* CONN_TOP_CLK */
+		<114 1 1 0 1 0 1>,	/* CONN_TOP_DATA */
+		<115 0 1 0 1 0 0>,	/* CONN_BT_CLK */
+		<116 1 1 0 1 0 1>,	/* CONN_BT_DATA */
+		<120 0 1 0 1 0 0>,	/* CONN_WB_PTA */
+		<121 0 1 0 1 0 0>,	/* CONN_HRST_B */
+		<153 0 1 0 0 2 0>,	/* LCD_EN_3P0 */
+		<160 0 0 0 1 0 0>,	/* NC */
+		<169 0 0 0 0 2 0>,	/* CON_DET */
+		<179 0 0 0 1 0 0>;	/* EL_ON1_DET */
+};
 
 /*************************
  * EINT DTSI File
@@ -370,7 +403,7 @@
 
 &md1_sim1_hot_plug_eint {
 	compatible = "mediatek,md1_sim1_hot_plug_eint-eint";
-	interrupts = <0 8>;
+	interrupts = <0 4>;
 	debounce = <0 10000>;
 	dedicated = <0 0>;
 	src_pin = <0 1>;
@@ -436,8 +469,68 @@
 /*************************
  * POWER DTSI File
  *************************/
+/ {
+	fragment@smd {
+		target-path = "/";
+		__overlay__ {
+			fixed_regulator_grip_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "grip_ldo";
+				gpio = <&pio 43 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
 
+			fixed_regulator_sensor_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "sensor_ldo";
+				gpio = <&pio 178 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
 
+			fixed_regulator_btp_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "btp_ldo";
+				gpio = <&pio 77 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
+
+			fixed_regulator_rcam4_dvdd_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "rcam4_dvdd_ldo";
+				gpio = <&pio 29 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
+
+			fixed_regulator_rcam4_avdd_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "rcam4_avdd_ldo";
+				gpio = <&pio 98 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
+
+			fixed_regulator_lcd_en_3p0_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "lcd_en_3p0_ldo";
+				gpio = <&pio 153 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
+
+			fixed_regulator_lcd_en_1p8_ldo {
+				compatible = "regulator-fixed";
+				regulator-name = "lcd_en_1p8_ldo";
+				gpio = <&pio 25 0>;
+				enable-active-high;
+				skip-gpio-request;
+			};
+		};
+	};
+};
 
 /*************************
  * KPD DTSI File

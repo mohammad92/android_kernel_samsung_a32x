@@ -51,6 +51,9 @@
 #include <asm/virt.h>
 #include <asm/mach/arch.h>
 #include <asm/mpu.h>
+#ifdef CONFIG_SEC_DEBUG
+#include <linux/sec_debug.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -601,7 +604,11 @@ static DEFINE_RAW_SPINLOCK(stop_lock);
 /*
  * ipi_cpu_stop - handle IPI from smp_send_stop()
  */
+#ifdef CONFIG_SEC_DEBUG
+static void ipi_cpu_stop(unsigned int cpu, struct pt_regs *regs)
+#else
 static void ipi_cpu_stop(unsigned int cpu)
+#endif
 {
 	if (system_state <= SYSTEM_RUNNING) {
 		raw_spin_lock(&stop_lock);
@@ -614,6 +621,10 @@ static void ipi_cpu_stop(unsigned int cpu)
 
 	local_fiq_disable();
 	local_irq_disable();
+	
+#ifdef CONFIG_SEC_DEBUG
+	sec_save_context(_THIS_CPU, regs);
+#endif
 
 	while (1) {
 		cpu_relax();
@@ -679,7 +690,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	case IPI_CPU_STOP:
 		irq_enter();
+#ifdef CONFIG_SEC_DEBUG
+		ipi_cpu_stop(cpu, regs);
+#else
 		ipi_cpu_stop(cpu);
+#endif
 		irq_exit();
 		break;
 

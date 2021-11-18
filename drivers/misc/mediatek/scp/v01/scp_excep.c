@@ -27,6 +27,10 @@
 #include "scp_excep.h"
 #include "scp_l1c.h"
 
+#ifdef CONFIG_SHUB
+#include "../../../../sensorhub/vendor/shub_mtk_helper.h"
+#endif
+
 struct scp_aed_cfg {
 	int *log;
 	int log_size;
@@ -605,8 +609,12 @@ void scp_aed(enum scp_excep_id type, enum scp_core_id id)
 	/*print scp message*/
 	pr_debug("scp_aed_title=%s", scp_aed_title);
 
-	if (type != EXCEP_LOAD_FIRMWARE)
+	if (type != EXCEP_LOAD_FIRMWARE) {
 		scp_prepare_aed_dump(scp_aed_title, &aed, id);
+#ifdef CONFIG_SHUB
+		shub_dump_write_file((void *)scp_A_dump_buffer_last, scp_A_dump_length);
+#endif
+	}
 	/*print detail info. in kernel*/
 	pr_debug("%s", aed.detail);
 

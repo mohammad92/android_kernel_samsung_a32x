@@ -1795,6 +1795,12 @@ cont:
 		if (!page)
 			continue;
 
+		if (PageUnevictable(page))
+			continue;
+
+		if (!PageLRU(page))
+			continue;
+
 		if (isolate_lru_page(page))
 			continue;
 
@@ -1845,9 +1851,6 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 		type = RECLAIM_ALL;
 	else
 		return -EINVAL;
-
-	if (type < RECLAIM_RANGE)
-		return count;
 
 	task = get_proc_task(file->f_path.dentry->d_inode);
 	if (!task)

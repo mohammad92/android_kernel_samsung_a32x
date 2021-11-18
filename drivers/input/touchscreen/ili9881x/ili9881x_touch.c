@@ -1432,7 +1432,7 @@ int ili_incell_power_control(int onoff)
 			input_err(true, ilits->dev, "%s: lcd_rst is already disabled\n", __func__);
 		}
 
-		if (ilits->chip->id == ILI7807_CHIP)
+		if ((ilits->chip->id == ILI7807_CHIP) || (ilits->chip->id == ILI9882_CHIP))
 			usleep_range(5 * 1000, 5 * 1000);
 
 		if (regulator_is_enabled(ilits->lcd_bl_en)) {
@@ -1442,6 +1442,9 @@ int ili_incell_power_control(int onoff)
 		} else {
 			input_err(true, ilits->dev, "%s: lcd_bl_en is already disabled\n", __func__);
 		}
+
+		if (ilits->chip->id == ILI9882_CHIP)
+			usleep_range(1500, 2000);
 
 		if (regulator_is_enabled(ilits->lcd_vddi)) {
 			ret = regulator_disable(ilits->lcd_vddi);

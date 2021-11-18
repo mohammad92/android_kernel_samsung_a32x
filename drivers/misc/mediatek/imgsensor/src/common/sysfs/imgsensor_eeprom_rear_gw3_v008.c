@@ -25,6 +25,11 @@ const struct rom_converted_cal_addr rear_gw3_converted_cal_addr = {
 	.rom_shading_checksum_len        = (REAR_GW3_CONVERTED_LSC_CHECKSUM_LEN),
 };
 
+const struct rom_sac_cal_addr rear_gw3_sac_addr = {
+	.rom_mode_addr               = 0x2E04, //Control, Mode
+	.rom_time_addr               = 0x2E05, //Resonance
+};
+
 const struct imgsensor_vendor_rom_addr rear_gw3_cal_addr = {
 	/* Set '-1' if not used */
 	.camera_module_es_version               = 'A',
@@ -54,6 +59,8 @@ const struct imgsensor_vendor_rom_addr rear_gw3_cal_addr = {
 	.rom_header_dual_cal_end_addr           = 0x24,
 	.rom_header_pdaf_cal_start_addr         = 0x48,
 	.rom_header_pdaf_cal_end_addr           = 0x4C,
+	.rom_header_ois_cal_start_addr          = -1,
+	.rom_header_ois_cal_end_addr            = -1,
 
 	.rom_header_sub_oem_start_addr          = -1,
 	.rom_header_sub_oem_end_addr            = -1,
@@ -73,9 +80,6 @@ const struct imgsensor_vendor_rom_addr rear_gw3_cal_addr = {
 	.rom_oem_module_info_start_addr         = -1,
 	.rom_oem_checksum_addr                  = 0x2E4C,
 	.rom_oem_checksum_len                   = REAR_GW3_OEM_CHECKSUM_LEN,
-
-	.rom_oem_af_sac_mode_addr               = 0x2E04, //Control, Mode
-	.rom_oem_af_sac_time_addr               = 0x2E05, //Resonance
 
 	.rom_module_cal_data_start_addr         = -1,
 	.rom_module_module_info_start_addr      = -1,
@@ -103,6 +107,9 @@ const struct imgsensor_vendor_rom_addr rear_gw3_cal_addr = {
 	.rom_pdaf_module_info_start_addr        = -1,
 	.rom_pdaf_checksum_addr                 = 0x365C,
 	.rom_pdaf_checksum_len                  = REAR_GW3_PDAF_CHECKSUM_LEN,
+
+	.rom_ois_checksum_addr                  = -1,
+	.rom_ois_checksum_len                   = -1,
 
 	.rom_sub_oem_af_inf_position_addr       = -1,
 	.rom_sub_oem_af_macro_position_addr     = -1,
@@ -134,6 +141,7 @@ const struct imgsensor_vendor_rom_addr rear_gw3_cal_addr = {
 	.rom_dual_shift_x_addr                  = -1,
 	.rom_dual_shift_y_addr                  = -1,
 
+	.sac_cal_addr                           = &rear_gw3_sac_addr,
 	.extend_cal_addr                        = NULL,
 
 	.converted_cal_addr                     = &rear_gw3_converted_cal_addr,

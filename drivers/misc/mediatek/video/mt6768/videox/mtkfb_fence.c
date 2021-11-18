@@ -1032,6 +1032,41 @@ void mtkfb_release_layer_fence(unsigned int session_id, unsigned int layer_id)
 	mtkfb_release_fence(session_id, layer_id, fence);
 }
 
+int mtkfb_release_present_fence(unsigned int session, unsigned int fence_idx)
+{
+	struct disp_sync_info *l_info = NULL;
+	unsigned int timeline_id = 0;
+	int fence_increment = 0;
+
+	timeline_id = disp_sync_get_present_timeline_id();
+	l_info = _get_sync_info(session, timeline_id);
+	if (l_info == NULL) {
+		DISPERR("layer_info is null\n");
+		return -1;
+	}
+
+	mutex_lock(&l_info->sync_lock);
+	fence_increment = fence_idx - l_info->timeline->value;
+
+	DISPPR_FENCE("RL PF %u %u\n", l_info->timeline->value, fence_idx);
+	if (fence_increment >= 2)
+		DISPPR_FENCE("Warning, R/%s%d/L%d/timeline idx:%d/fence:%d\n",
+			disp_session_mode_spy(session),
+			DISP_SESSION_DEV(session), timeline_id,
+			l_info->timeline->value, fence_idx);
+
+	if (fence_increment > 0) {
+		timeline_inc(l_info->timeline, fence_increment);
+		DISPPR_FENCE("RL+/%s%d/L%d/id%d\n",
+		     disp_session_mode_spy(session),
+		     DISP_SESSION_DEV(session), timeline_id, fence_idx);
+	}
+
+	mutex_unlock(&l_info->sync_lock);
+
+	return 0;
+}
+
 void mtkfb_release_session_fence(unsigned int session_id)
 {
 	struct disp_session_sync_info *session_sync_info = NULL;

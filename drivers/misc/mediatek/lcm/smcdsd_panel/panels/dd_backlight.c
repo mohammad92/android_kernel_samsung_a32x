@@ -395,7 +395,7 @@ static ssize_t bl_tuning_write(struct file *f, const char __user *user_buf,
 		goto exit;
 	}
 
-	if (!strncmp(ibuf, "0", count - 1)) {
+	if (sysfs_streq(ibuf, "0")) {
 		dbg_info("input is 0(zero). reset brightness table to default\n");
 		make_bl_curve(bl, bl->default_tune_value, bl->default_brightness);
 		for (i = 0; i < bl->bd->props.max_brightness; i++) {

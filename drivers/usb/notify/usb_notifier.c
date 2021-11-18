@@ -41,7 +41,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
 
-#if IS_ENABLED(CONFIG_MACH_MT6768)
+#if IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6739)
 #include "../../misc/mediatek/usb20/mtk_musb.h"
 #endif
 
@@ -368,12 +368,14 @@ static int muic_usb_handle_notification(struct notifier_block *nb,
 	case ATTACHED_DEV_CDP_MUIC:
 	case ATTACHED_DEV_UNOFFICIAL_ID_USB_MUIC:
 	case ATTACHED_DEV_UNOFFICIAL_ID_CDP_MUIC:
-		if (action == MUIC_NOTIFY_CMD_DETACH)
+		if (action == MUIC_NOTIFY_CMD_DETACH) {
 			send_otg_notify(o_notify, NOTIFY_EVENT_USB_CABLE, 0);
-		else if (action == MUIC_NOTIFY_CMD_ATTACH)
+			send_otg_notify(o_notify, NOTIFY_EVENT_VBUS, 0);
+		} else if (action == MUIC_NOTIFY_CMD_ATTACH) {
 			send_otg_notify(o_notify, NOTIFY_EVENT_USB_CABLE, 1);
-		else
-			;
+			send_otg_notify(o_notify, NOTIFY_EVENT_VBUS, 1);
+		} else
+			pr_err("%s - ACTION Error!\n", __func__);
 		break;
 	case ATTACHED_DEV_JIG_USB_OFF_MUIC:
 	case ATTACHED_DEV_JIG_USB_ON_MUIC:
@@ -558,7 +560,7 @@ static int mtk_set_host(bool enable)
 {
 	pr_info("%s enable %d +\n", __func__, enable);
 #if !IS_ENABLED(CONFIG_USB_MU3D_DRV)
-#if IS_ENABLED(CONFIG_MACH_MT6768)
+#if IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6739)
 	if (enable)
 		mt_usb_host_connect(0);
 	else
@@ -578,7 +580,7 @@ static int mtk_set_peripheral(bool enable)
 {
 	pr_info("%s enable %d +\n", __func__, enable);
 #if !IS_ENABLED(CONFIG_USB_MU3D_DRV)
-#if IS_ENABLED(CONFIG_MACH_MT6768)
+#if IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6739)
 	if (enable)
 		mt_usb_connect();
 	else

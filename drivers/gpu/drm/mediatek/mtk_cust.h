@@ -17,9 +17,8 @@
 #include "mtk_debug.h"
 #include "mtk_panel_ext.h"
 
-int set_lcm(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking, bool need_lock);
-int read_lcm(struct mtk_ddic_dsi_msg *cmd_msg, bool need_lock);
+int set_lcm(struct mtk_ddic_dsi_msg *cmd_msg);
+int read_lcm(struct mtk_ddic_dsi_msg *cmd_msg);
 
 
 #endif

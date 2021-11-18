@@ -402,7 +402,7 @@ void set_current_ic_mode(int mode)
 
 	input_info(true, ilits->dev, "%s,mode:%d\n", __func__, mode);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_info(true, ilits->dev, "%s power off satus\n", __func__);
 		return;
 	}
@@ -557,7 +557,8 @@ int ili_sleep_handler(int mode)
 	case TP_EARLY_RESUME:
 		input_info(true, ilits->dev, "%s ilits->power_status:%d, ges_sym:0x%x\n",
 				__func__, ilits->power_status, ilits->ges_sym);
-		if ((ilits->power_status != POWER_OFF_STATUS) && (ilits->power_status != POWER_ON_STATUS)) {
+		if ((ilits->power_status != POWER_OFF_STATUS) && (ilits->power_status != POWER_ON_STATUS)
+			&& !ilits->tp_shutdown) {
 			ili_irq_wake_disable();
 			if (ilits->power_status == LP_PROX_STATUS) {
 				ilits->actual_tp_mode = P5_X_FW_AP_MODE;
@@ -569,8 +570,8 @@ int ili_sleep_handler(int mode)
 				ilits->prox_power_off = 0;
 				ilits->prox_lp_scan_mode_enabled = false;
 			}
-			if (ilits->power_status != LP_FACTORY_STATUS) {
-				if (ilits->chip->id == ILI7807_CHIP) {
+			if ((ilits->power_status != LP_FACTORY_STATUS) && !ilits->tp_shutdown) {
+				if ((ilits->chip->id == ILI7807_CHIP) || (ilits->chip->id == ILI9882_CHIP)) {
 					ilitek_pin_control(false);
 					usleep_range(5 * 1000, 5 * 1000);
 					ili_incell_power_control(DISABLE);

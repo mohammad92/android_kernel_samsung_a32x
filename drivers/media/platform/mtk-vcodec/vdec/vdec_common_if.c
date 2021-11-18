@@ -172,7 +172,8 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	}
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
-	ctx->input_driven = inst->vsi->input_driven;
+	if (inst->vsi != NULL)
+		ctx->input_driven = inst->vsi->input_driven;
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 

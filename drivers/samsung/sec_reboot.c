@@ -43,7 +43,6 @@
 
 static void sec_power_off(void)
 {
-	int poweroff_try = 0;
 	unsigned short released;
 	union power_supply_propval ac_val, usb_val, wc_val;
 	struct power_supply *ac_psy = power_supply_get_by_name("ac");
@@ -63,27 +62,11 @@ static void sec_power_off(void)
 	__inner_flush_dcache_all();
 
 	while (1) {
-		/* Check reboot charging */
-		if (ac_val.intval || usb_val.intval || wc_val.intval || (poweroff_try >= 5)) {
-			pr_emerg("%s: charger connected or power off "
-					"failed(%d), reboot!\n",
-					__func__, poweroff_try);
-			/* To enter LP charging */
-			LAST_RR_SET(is_power_reset, SEC_POWER_OFF);
-			LAST_RR_SET(power_reset_reason, SEC_RESET_REASON_IN_OFFSEQ);
-			wdt_arch_reset(1);
-			while (1);
-		}
-
 		/* wait for power button release */
 		released = pmic_get_register_value_nolock(PMIC_PWRKEY_DEB);
 		if (released) {
 			pr_info("%s: PowerButton was released(%d)\n", __func__, released);
 			mt_power_off();
-			++poweroff_try;
-			pr_emerg
-			    ("%s: Should not reach here! (poweroff_try:%d)\n",
-			     __func__, poweroff_try);
 		} else {
 		/* if power button is not released, wait and check TA again */
 			pr_info("%s: PowerButton wasn't released(%d)\n", __func__, released);
@@ -103,7 +86,7 @@ static void sec_reboot(enum reboot_mode reboot_mode, const char *cmd)
 
 	if (cmd) {
 		unsigned long value;
-		if (!strcmp(cmd, "fota"))
+		if (!strcmp(cmd, "recovery-update"))
 			LAST_RR_SET(power_reset_reason, SEC_RESET_REASON_FOTA);
 		else if (!strcmp(cmd, "fota_bl"))
 			LAST_RR_SET(power_reset_reason, SEC_RESET_REASON_FOTA_BL);

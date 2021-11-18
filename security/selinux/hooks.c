@@ -326,7 +326,7 @@ static void cred_init_security(void)
 {
 	struct cred *cred = (struct cred *) current->real_cred;
 	struct task_security_struct *tsec;
-#ifdef CONFIG_KDP_CRED
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 	tsec = &init_sec;
 	tsec->bp_cred = cred;
 #else
@@ -4095,9 +4095,16 @@ static void selinux_cred_free(struct cred *cred)
 		uh_call(UH_APP_RKP, RKP_KDP_X45, (u64)&cred->security, 7, 0, 0);
 	else
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (is_kdp_protect_addr((unsigned long)cred)) {
+		uh_call(UH_APP_KDP, SELINUX_CRED_FREE, (u64)&cred->security, 7, 0, 0);
+	} else
+#endif
 	cred->security = (void *) 0x7UL;
 #ifdef CONFIG_KDP_CRED
 	rkp_free_security((unsigned long)tsec);
+#elif defined(CONFIG_RUSTUH_KDP_CRED)
+	kdp_free_security((unsigned long)tsec);
 #else
 	kfree(tsec);
 #endif
@@ -6852,7 +6859,11 @@ static int selinux_perf_event_write(struct perf_event *event)
 }
 #endif
 
+#ifdef CONFIG_RUSTUH_KDP_CRED
+static struct security_hook_list selinux_hooks[] __lsm_ro_after_init_kdp = {
+#else
 static struct security_hook_list selinux_hooks[] __lsm_ro_after_init = {
+#endif
 	LSM_HOOK_INIT(binder_set_context_mgr, selinux_binder_set_context_mgr),
 	LSM_HOOK_INIT(binder_transaction, selinux_binder_transaction),
 	LSM_HOOK_INIT(binder_transfer_binder, selinux_binder_transfer_binder),

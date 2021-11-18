@@ -117,6 +117,7 @@ struct mdp_thread {
 	bool acquired;
 	bool allow_dispatch;
 	bool secure;
+	bool mtee;
 };
 
 struct mdp_context {
@@ -625,7 +626,13 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 
 	/* make this thread can be dispath again */
 	mdp_ctx.thread[thread].allow_dispatch = true;
+
+	if (!mdp_ctx.thread[thread].task_count)
+		mdp_ctx.thread[thread].mtee = handle->secData.mtee;
+
 	mdp_ctx.thread[thread].task_count++;
+	CMDQ_LOG("%s thread:%d, task_count:%d\n",
+		__func__, thread, mdp_ctx.thread[thread].task_count);
 
 	CMDQ_PROF_END(current->pid, __func__);
 }
@@ -673,7 +680,11 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 			"true" : "false",
 			mdp_ctx.thread[thread].acquired ? "true" : "false");
 	mdp_ctx.thread[thread].task_count--;
+	CMDQ_LOG("%s thread:%d, task_count:%d\n",
+		__func__, thread, mdp_ctx.thread[thread].task_count);
 
+	if (!mdp_ctx.thread[thread].task_count)
+		mdp_ctx.thread[thread].mtee = false;
 	/* if no task on thread, release to cmdq core */
 	/* no need to release thread since secure path use static thread */
 	if (!mdp_ctx.thread[thread].task_count && !handle->secData.is_secure) {
@@ -810,8 +821,15 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 	if (cmdq_mdp_check_engine_waiting_unlock(handle) < 0)
 		return CMDQ_INVALID_THREAD;
 
-	if (handle->secData.is_secure)
-		return handle->ctrl->get_thread_id(handle->scenario);
+	if (handle->secData.is_secure) {
+		thread = handle->ctrl->get_thread_id(handle->scenario);
+
+		if (mdp_ctx.thread[thread].task_count &&
+			mdp_ctx.thread[thread].mtee != handle->secData.mtee)
+			return CMDQ_INVALID_THREAD;
+
+		return thread;
+	}
 #endif
 	conflict = cmdq_mdp_check_engine_conflict(handle, &thread);
 	if (conflict) {
@@ -2334,6 +2352,10 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	pmqos_curr_record =
 		kzalloc(sizeof(struct mdp_pmqos_record), GFP_KERNEL);
+	if (unlikely(!pmqos_curr_record)) {
+		CMDQ_ERR("alloc pmqos_curr_record fail\n");
+		return;
+	}
 	handle->user_private = pmqos_curr_record;
 
 	do_gettimeofday(&curr_time);
@@ -2621,6 +2643,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 	mdp_curr_pmqos = (struct mdp_pmqos *)handle->prop_addr;
 	pmqos_curr_record = (struct mdp_pmqos_record *)handle->user_private;
+	if (unlikely(!pmqos_curr_record)) {
+		CMDQ_ERR("alloc pmqos_curr_record fail\n");
+		return;
+	}
 	pmqos_curr_record->submit_tm = curr_time;
 
 	for (i = 0; i < size; i++) {

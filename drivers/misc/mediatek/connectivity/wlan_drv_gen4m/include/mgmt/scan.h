@@ -292,6 +292,12 @@ struct BSS_DESC {
 	 */
 	u_int8_t fgIsConnected;
 
+	/* If we are in beacon timeout procedure, don't removed
+	 * this record from BSS list to keep its channel. And we should not
+	 * take the BSS as connection candidate for AP selection.
+	 */
+	u_int8_t fgIsInBTO;
+
 	/* When this flag is TRUE, means the SSID of this
 	 * BSS is not known yet.
 	 */

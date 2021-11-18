@@ -32,6 +32,7 @@ else
 endif
 subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/src/common/sysfs
 subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc
+subdir-ccflags-$(CONFIG_CAMERA_OIS_MCU) += -I$(MTK_CUSTOM_PATH)/lens/main/common/ois_mcu
 
 ifeq ($(CONFIG_MTK_LENS_USE_MODULE), y)
 
@@ -51,6 +52,7 @@ MAIN_CFILES  += common/dw9814af/DW9814AF.c
 MAIN_CFILES  += common/dw9718af/DW9718AF.c
 MAIN_CFILES  += common/dw9718saf/DW9718SAF.c
 MAIN_CFILES  += common/dw9719taf/DW9719TAF.c
+MAIN_CFILES  += common/dw9825af_ois_mcu/DW9825AF_OIS_MCU.c
 MAIN_CFILES  += common/dw9839af/DW9839AF.c
 MAIN_CFILES += common/lc898212af/LC898212AF.c
 MAIN_CFILES  += common/lc898212xdaf/LC898212XDAF.c
@@ -99,6 +101,7 @@ obj-y  += common/dw9718af/
 obj-y += common/dw9718taf/
 obj-y  += common/dw9718saf/
 obj-y  += common/dw9719taf/
+obj-y  += common/dw9825af_ois_mcu/
 obj-y  += common/dw9839af/
 obj-y  += common/gt9764af/
 obj-y  += common/lc898212af/
@@ -112,6 +115,7 @@ obj-y  += common/lc898229af/
 obj-y  += common/lc898122af/
 obj-y  += common/wv511aaf/
 obj-y  += common/ak7371af/
+obj-$(CONFIG_CAMERA_OIS_MCU)  += common/ois_mcu/
 ifeq ($(CONFIG_MTK_LENS_BU63165AF_SUPPORT), y)
   obj-y  += common/bu63165af/
 else

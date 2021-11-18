@@ -40,17 +40,12 @@
 #define SM5714_HW_TIMEOUT 1600 /* ms */
 #define SM5714_DUTY_STEP 25
 
-#define VOLTAGE_DECREASE 0
-#define VOLTAGE_INCREASE 1
-#define VOLTAGE_NONE 2
-#define VOLTAGE_PRE_ON_DONE 3
-
 /* define mutex and work queue */
 static DEFINE_MUTEX(sm5714_mutex);
 static struct work_struct sm5714_work;
 static struct work_struct sm5714_voltage_work;
 
-static int volt_direction = VOLTAGE_NONE;
+static int sm5714_volt_state = SM5714_FLED_MODE_CLOSE_FLASH;
 /* define usage count */
 static int use_count;
 static int sm5714_current_level;
@@ -89,12 +84,10 @@ static void sm5714_set_level(int level)
 
 static void sm5714_adjust_voltage()
 {
-	if (volt_direction == VOLTAGE_DECREASE) {
-		sm5714_fled_mode_ctrl(SM5714_FLED_MODE_PREPARE_FLASH, 0);
+	sm5714_fled_mode_ctrl(sm5714_volt_state, 0);
+	if (sm5714_volt_state == SM5714_FLED_MODE_PREPARE_FLASH) {
 		pr_info("[%s]%d Down Voltage set On\n", __func__, __LINE__);
-	} else if (volt_direction == VOLTAGE_INCREASE) {
-		volt_direction = VOLTAGE_NONE;
-		sm5714_fled_mode_ctrl(SM5714_FLED_MODE_CLOSE_FLASH, 0);
+	} else if (sm5714_volt_state == SM5714_FLED_MODE_CLOSE_FLASH) {
 		pr_info("[%s]%d Down Voltage set Clear\n", __func__, __LINE__);
 	}
 }
@@ -114,8 +107,6 @@ static void sm5714_work_disable(struct work_struct *data)
 static enum hrtimer_restart sm5714_timer_func(struct hrtimer *timer)
 {
 	schedule_work(&sm5714_work);
-	volt_direction = VOLTAGE_INCREASE;
-	schedule_work(&sm5714_voltage_work);
 	return HRTIMER_NORESTART;
 }
 
@@ -171,17 +162,15 @@ static int sm5714_ioctl(unsigned int cmd, unsigned long arg)
 		} else {
 			sm5714_fled_mode_ctrl(SM5714_FLED_MODE_OFF, 0);
 			hrtimer_cancel(&sm5714_timer);
-			if (volt_direction == VOLTAGE_PRE_ON_DONE) {
-				volt_direction = VOLTAGE_INCREASE;
-				schedule_work(&sm5714_voltage_work);
-			}
 		}
 		break;
 
 	case FLASH_IOC_PRE_ON:
 		pr_debug("FLASH_IOC_PRE_ON(%d)\n", channel);
-		if (volt_direction == VOLTAGE_DECREASE)
-			volt_direction = VOLTAGE_PRE_ON_DONE;
+		if (sm5714_volt_state == SM5714_FLED_MODE_CLOSE_FLASH) {
+			sm5714_volt_state = SM5714_FLED_MODE_PREPARE_FLASH;
+			schedule_work(&sm5714_voltage_work);
+		}
 		break;
 
 	case FLASH_IOC_GET_DUTY_NUMBER:
@@ -208,16 +197,17 @@ static int sm5714_ioctl(unsigned int cmd, unsigned long arg)
 
 	case FLASH_IOC_SET_SCENARIO:
 		pr_debug("FLASH_IOC_SET_SCENARIO(%d)\n", channel);
-		if (volt_direction == VOLTAGE_DECREASE) {
-			volt_direction = VOLTAGE_INCREASE;
-			schedule_work(&sm5714_voltage_work);
+		if (sm5714_volt_state == SM5714_FLED_MODE_CLOSE_FLASH) {
+			sm5714_volt_state = SM5714_FLED_MODE_PREPARE_FLASH;
 		}
+		else if (sm5714_volt_state == SM5714_FLED_MODE_PREPARE_FLASH) {
+			sm5714_volt_state = SM5714_FLED_MODE_CLOSE_FLASH;
+		}
+		schedule_work(&sm5714_voltage_work);
 		break;
 
 	case FLASH_IOC_SET_VOLTAGE:
 		pr_debug("FLASH_IOC_SET_VOLTAGE(%d)\n", channel);
-	volt_direction = VOLTAGE_DECREASE;
-	schedule_work(&sm5714_voltage_work);
 		break;
 
 	default:

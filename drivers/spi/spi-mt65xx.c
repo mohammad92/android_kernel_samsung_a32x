@@ -88,6 +88,7 @@
 #define MTK_SPI_MAX_FIFO_SIZE 32U
 #define MTK_SPI_PACKET_SIZE 1024
 #define MTK_SPI_32BITS_MASK  (0xffffffff)
+#define MTK_SPI_TCKDLY_MASK (0x1FFFFFFF)
 
 #define DMA_ADDR_EXT_BITS (36)
 #define DMA_ADDR_DEF_BITS (32)
@@ -124,7 +125,7 @@ static const struct mtk_spi_compatible mt2712_compat = {
 };
 
 static const struct mtk_spi_compatible mt6739_compat = {
-	.need_pad_sel = true,
+	.need_pad_sel = false,
 	.must_tx = true,
 	.enhance_timing = true,
 	.dma_ext = true,
@@ -278,6 +279,8 @@ static void spi_dump_config(struct spi_master *master, struct spi_message *msg)
 			chip_config->cs_idletime);
 	spi_debug("chip_config->deassert_mode=%d\n",
 			chip_config->deassert_mode);
+	spi_debug("chip_config->tick_delay=%d\n",
+		chip_config->tick_delay);
 	spi_debug("chip_config->chip_select:%d,chip_config->pad_sel:%d\n",
 			spi->chip_select, mdata->pad_sel[spi->chip_select]);
 	spi_debug("||**************%s end**************||\n", __func__);
@@ -456,6 +459,8 @@ static void mtk_spi_prepare_transfer(struct spi_master *master,
 	reg_val = readl(mdata->base + SPI_CFG1_REG);
 	reg_val &= ~SPI_CFG1_CS_IDLE_MASK;
 	reg_val |= (((cs_idletime - 1) & 0xff) << SPI_CFG1_CS_IDLE_OFFSET);
+	reg_val &= MTK_SPI_TCKDLY_MASK;
+	reg_val |= (chip_config->tick_delay << SPI_CFG1_GET_TICK_DLY_OFFSET);
 	writel(reg_val, mdata->base + SPI_CFG1_REG);
 }
 
@@ -988,7 +993,10 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
 			   addr_bits, ret);
 
+	pr_info("num_chipselect=%d\n", master->num_chipselect);
+
 	return 0;
+
 
 err_disable_runtime_pm:
 	pm_runtime_disable(&pdev->dev);

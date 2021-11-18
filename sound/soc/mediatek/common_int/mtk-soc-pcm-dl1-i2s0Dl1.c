@@ -60,6 +60,8 @@
 #include "mtk-soc-pcm-common.h"
 #include "mtk-soc-pcm-platform.h"
 
+#include "mtk_mcdi_api.h"
+
 static struct afe_mem_control_t *pI2S0dl1MemControl;
 static struct snd_dma_buffer Dl1I2S0_Playback_dma_buf;
 static unsigned int mPlaybackDramState;
@@ -313,6 +315,8 @@ static int mtk_pcm_I2S0dl1_open(struct snd_pcm_substream *substream)
 
 	AudDrv_Clk_On();
 
+	system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 1);
+
 	memcpy((void *)(&(runtime->hw)), (void *)&mtk_I2S0dl1_hardware,
 	       sizeof(struct snd_pcm_hardware));
 	pI2S0dl1MemControl = Get_Mem_ControlT(Soc_Aud_Digital_Block_MEM_DL1);
@@ -410,6 +414,8 @@ static int mtk_pcm_I2S0dl1_close(struct snd_pcm_substream *substream)
 	AudDrv_Clk_Off();
 
 	vcore_dvfs(&vcore_dvfs_enable, true);
+
+	system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 0);
 
 	return 0;
 }

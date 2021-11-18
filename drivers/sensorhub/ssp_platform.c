@@ -160,3 +160,21 @@ bool is_sensorhub_working(void *ssp_data)
 
 	return	READ_ONCE(scp_system_ready) && data->is_probe_done && !work_busy(&data->work_reset);
 }
+
+#ifdef CONFIG_SENSORS_SSP_DUMP
+void save_ram_dump(void* ssp_data)
+{
+}
+
+int get_sensorhub_dump_size(void)
+{
+	return scp_region_info_copy.ap_dram_size;
+}
+
+void sensorhub_dump_write_file(void *dump_data, int dump_size)
+{
+	struct ssp_data *data = get_ssp_data();
+
+	write_ssp_dump_file(data, (char *)dump_data, dump_size, 1, 4);
+}
+#endif

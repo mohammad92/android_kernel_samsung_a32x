@@ -3298,9 +3298,7 @@ static long pseudo_ioctl(struct file *filp,
 			M4U_MSG(
 				"MTK M4U ioctl : MTK_M4U_T_SEC_INIT command!! 0x%x\n",
 					cmd);
-			mutex_lock(&gM4u_sec_init);
-			ret = m4u_sec_init_nolock();
-			mutex_unlock(&gM4u_sec_init);
+			ret = m4u_sec_init();
 		}
 		break;
 #endif
@@ -3450,9 +3448,7 @@ long pseudo_compat_ioctl(struct file *filp,
 			M4U_MSG(
 				"MTK_M4U_T_SEC_INIT command!! 0x%x\n",
 					cmd);
-			mutex_lock(&gM4u_sec_init);
-			ret = m4u_sec_init_nolock();
-			mutex_unlock(&gM4u_sec_init);
+			ret = m4u_sec_init();
 		}
 		break;
 #endif

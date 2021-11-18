@@ -314,6 +314,7 @@ struct ccci_dump_buffer {
 	unsigned int write_pos;
 	unsigned int max_num;
 	unsigned int attr;
+	unsigned long long buf_pa;
 	spinlock_t lock;
 };
 
@@ -820,11 +821,9 @@ static const struct file_operations ccci_dump_fops = {
 phys_addr_t cccimdee_reserved_phy_addr;
 void *cccimdee_reserved_vir_addr;
 unsigned int cccimdee_reserved_size;
-static void *cccimdee_reserve_memory_alloc(unsigned int zone,
-	unsigned int id, unsigned int size);
 
-static void *cccimdee_reserve_memory_alloc(unsigned int zone,
-	unsigned int id, unsigned int size);
+static int cccimdee_reserve_memory_alloc(unsigned int zone,
+	unsigned int id, unsigned int size, struct ccci_dump_buffer *ctlb_ptr);
 
 static void ccci_dump_buffer_init(void)
 {
@@ -889,13 +888,10 @@ static void ccci_dump_buffer_init(void)
 			ptr = node_ptr->ctlb_ptr;
 			spin_lock_init(&ptr->lock);
 			if (buff_en_bit_map & (1<<i) && node_ptr->init_size) {
-				ptr->buffer = cccimdee_reserve_memory_alloc(i,
-					j, node_ptr->init_size);
-				if (ptr->buffer == NULL) {
+				if (cccimdee_reserve_memory_alloc(i, j, node_ptr->init_size, ptr)) {
 					/* allocate buffer */
-					ptr->buffer =
-						kmalloc(node_ptr->init_size,
-						GFP_KERNEL);
+					ptr->buffer = kmalloc(node_ptr->init_size, GFP_KERNEL);
+					ptr->buf_pa = 0;
 					pr_notice("[ccci]alloc ee dump memory:zone %d,id:%d, size:0x%x\n",
 						i, j, node_ptr->init_size);
 				}
@@ -959,7 +955,7 @@ void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len)
 		return;
 	}
 
-	ccci_dump_write(md_id, buf_type, 0, "Base:%lx\n",
+	ccci_dump_write(md_id, buf_type, 0, "Base:%px\n",
 					(unsigned long)start_addr);
 	/* Fix section */
 	for (i = 0; i < _16_fix_num; i++) {
@@ -1222,29 +1218,48 @@ void ccci_log_init(void)
 	ccci_event_buffer_init();
 }
 
+/* for direct dump reserved memory */
+extern void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
+		unsigned long size, unsigned long start, char *name);
+
 void get_ccci_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
-	unsigned long data_size = ke_dump_ctlb[0].data_size;
+	struct ccci_dump_buffer *ctlb_ptr = &ke_dump_ctlb[0];
+	unsigned int data_size = ctlb_ptr->data_size;
 
-	if (data_size > ke_dump_ctlb[0].buf_size)
-		data_size = ke_dump_ctlb[0].buf_size;
+	if (data_size > ctlb_ptr->buf_size)
+		data_size = ctlb_ptr->buf_size;
 
-	*vaddr = (unsigned long)ke_dump_ctlb[0].buffer;
-	*size = data_size;
-
+	/* will be dumped directly during exception */
+	if (ctlb_ptr->buf_pa) {
+		*vaddr = 0;
+		*size = 0;
+		mrdump_mini_add_misc_pa(0, ctlb_ptr->buf_pa, data_size, 0, "_EXTRA_CCCI_");
+	} else {
+		*vaddr = (unsigned long)ctlb_ptr->buffer;
+		*size = data_size;
+	}
 }
 EXPORT_SYMBOL(get_ccci_aee_buffer);
 
 void get_md_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
-	unsigned long data_size = reg_dump_ctlb[0].data_size;
+	struct ccci_dump_buffer *ctlb_ptr = &reg_dump_ctlb[0];
+	unsigned int data_size = ctlb_ptr->data_size;
 
-	if (data_size > reg_dump_ctlb[0].buf_size)
-		data_size = reg_dump_ctlb[0].buf_size;
+	if (data_size > ctlb_ptr->buf_size)
+		data_size = ctlb_ptr->buf_size;
 
-	*vaddr = (unsigned long)reg_dump_ctlb[0].buffer;
-	*size = data_size;
-
+	/* for reserve-mem, will be dumped directly during exception */
+	/* for kmalloc lm-VA, will be dumped by common mrdump */
+	if (ctlb_ptr->buf_pa) {
+		*vaddr = 0;
+		*size = 0;
+		mrdump_mini_add_misc_pa(0, ctlb_ptr->buf_pa, data_size, 0, "_EXTRA_MD_");
+	} else {
+		*vaddr = (unsigned long)ctlb_ptr->buffer;
+		*size = data_size;
+	}
 }
 EXPORT_SYMBOL(get_md_aee_buffer);
 
@@ -1258,32 +1273,33 @@ static int cccimdee_reserve_memory_init(struct reserved_mem *rmem)
 		"ccci-md-ee-dump", (unsigned long long)rmem->base,
 		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
 		(unsigned long long)rmem->size);
+
 	return 0;
 }
 
-static void *cccimdee_reserve_memory_alloc(unsigned int zone,
-	unsigned int id, unsigned int size)
+static int cccimdee_reserve_memory_alloc(unsigned int zone,
+	unsigned int id, unsigned int size, struct ccci_dump_buffer *ctlb_ptr)
 {
-	void *virt = NULL;
 	static unsigned int total_size;
 
 	total_size += size;
-	if (total_size > cccimdee_reserved_size) {
-		pr_notice("[ccci]err:alloc total_size(0x%x) > cccimdee_reserved_size(0x%x)\n",
-			total_size, cccimdee_reserved_size);
-		return NULL;
+	if (total_size > cccimdee_reserved_size || !cccimdee_reserved_vir_addr) {
+		pr_notice("[ccci]err:alloc total_size(0x%x) > cccimdee_reserved_size(0x%x)|| cccimdee_reserved_vir_addr = 0x%lx\n",
+			total_size, cccimdee_reserved_size,
+			(unsigned long)cccimdee_reserved_vir_addr);
+		return -1;
 	}
 
-	virt = cccimdee_reserved_vir_addr;
-	pr_notice("[ccci]alloc ee dump DT reserve memory:zone %d,id:%d, size:0x%x, virt:0x%p, phy:0x%llx\n",
-		zone, id, size, virt,
-		cccimdee_reserved_phy_addr);
+	ctlb_ptr->buffer = cccimdee_reserved_vir_addr;
+	ctlb_ptr->buf_pa = cccimdee_reserved_phy_addr;
+
+	pr_notice("[ccci]alloc ee dump DT reserve memory:zone %d,id:%d, size:0x%x, virt:0x%lx, phy:0x%llx\n",
+		zone, id, size, (unsigned long)ctlb_ptr->buffer, ctlb_ptr->buf_pa);
 
 	cccimdee_reserved_vir_addr += size;
 	cccimdee_reserved_phy_addr += size;
 
-
-	return virt;
+	return 0;
 }
 
 RESERVEDMEM_OF_DECLARE(reserve_memory_cccimdeedump, "mediatek,ccci-md-ee-dump",

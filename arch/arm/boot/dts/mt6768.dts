@@ -1301,7 +1301,7 @@
 		sram_share_engine = <13>;
 		sram_share_event = <710>;
 		mediatek,mailbox-gce = <&gce_mbox>;
-		secure_thread = <6 8>;
+		secure_thread = <6 9>;
 		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,
 			<&gce_mbox 3 0 CMDQ_THR_PRIO_4>,
@@ -1313,12 +1313,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			<&gce_mbox_svp 8 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox_svp 9 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox_svp 10 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_svp 11 0 CMDQ_THR_PRIO_1>,
 #else
 			<&gce_mbox 8 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 9 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 10 0 CMDQ_THR_PRIO_1>,
-#endif
 			<&gce_mbox 11 0 CMDQ_THR_PRIO_1>,
+#endif
 			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 13 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 14 0 CMDQ_THR_PRIO_1>,

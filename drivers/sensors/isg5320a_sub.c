@@ -27,15 +27,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/vmalloc.h>
-#if IS_ENABLED(CONFIG_MUIC_NOTIFIER)
-#include <linux/muic/common/muic.h>
-#include <linux/muic/common/muic_notifier.h>
-#endif
-#if IS_ENABLED(CONFIG_CCIC_NOTIFIER) || IS_ENABLED(CONFIG_PDIC_NOTIFIER)
-#include <linux/usb/typec/common/pdic_notifier.h>
-#endif
-#if IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-#include <linux/usb/typec/manager/usb_typec_manager_notifier.h>
+#if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
+#include <linux/vbus_notifier.h>
 #endif
 
 #include "isg5320a_sub_reg.h"
@@ -52,7 +45,11 @@
 #define ISG5320A_TAG             "[ISG5320A_SUB]"
 
 #define HALLIC_PATH            "/sys/class/sec/hall_ic/hall_detect"
-#define HALLIC_CERT_PATH       "/sys/class/sec/hall_ic/certify_hall_detect"
+#if defined(CONFIG_FLIP_COVER_DETECTOR_FACTORY)
+#define HALLIC_CERT_PATH	"/sys/class/sensors/flip_cover_detector_sensor/nfc_cover_status"
+#else
+#define HALLIC_CERT_PATH	"/sys/class/sec/hall_ic/certify_hall_detect"
+#endif
 
 #define ISG5320A_INIT_DELAYEDWORK
 #define GRIP_LOG_TIME            40 /* 20 sec */
@@ -76,11 +73,8 @@ struct isg5320a_data {
 #endif
 	struct wake_lock grip_wake_lock;
 	struct mutex lock;
-#if IS_ENABLED(CONFIG_MUIC_NOTIFIER)
-	struct notifier_block cpuidle_muic_nb;
-#endif
-#if IS_ENABLED(CONFIG_CCIC_NOTIFIER) || IS_ENABLED(CONFIG_PDIC_NOTIFIER)
-	struct notifier_block cpuidle_ccic_nb;
+#if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
+	struct notifier_block vbus_nb;
 #endif
 	int gpio_int;
 
@@ -142,7 +136,7 @@ static int check_hallic_state(char *file_path, unsigned char hall_ic_status[])
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	filep = filp_open(file_path, O_RDONLY, 0666);
+	filep = filp_open(file_path, O_RDONLY, 0440);
 	if (IS_ERR(filep)) {
 		ret = PTR_ERR(filep);
 		set_fs(old_fs);
@@ -1529,81 +1523,35 @@ static void debug_work_func(struct work_struct *work)
 	schedule_delayed_work(&data->debug_work, msecs_to_jiffies(2000));
 }
 
-#if (IS_ENABLED(CONFIG_CCIC_NOTIFIER) || IS_ENABLED(CONFIG_PDIC_NOTIFIER)) && IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-static int isg5320a_ccic_handle_notification(struct notifier_block *nb,
-					     unsigned long action, void *data)
+#if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
+static int isg5320a_cpuidle_vbus_notifier(struct notifier_block *nb,
+				unsigned long action, void *vbus_data)
 {
-#if IS_ENABLED(CONFIG_PDIC_NOTIFIER)
-	PD_NOTI_USB_STATUS_TYPEDEF usb_status = *(PD_NOTI_USB_STATUS_TYPEDEF *)data;
-#else
-	CC_NOTI_USB_STATUS_TYPEDEF usb_status = *(CC_NOTI_USB_STATUS_TYPEDEF *)data;
-#endif
-	struct isg5320a_data *pdata = container_of(nb, struct isg5320a_data,
-						   cpuidle_ccic_nb);
-	static int pre_attach;
+	vbus_status_t vbus_type = *(vbus_status_t *) vbus_data;
+	struct isg5320a_data *data = container_of(nb, struct isg5320a_data, vbus_nb);
+	static int vbus_pre_attach;
 
-	if (pre_attach == usb_status.attach)
+	if (vbus_pre_attach == vbus_type)
 		return 0;
-	/*
-	 * USB_STATUS_NOTIFY_DETACH = 0,
-	 * USB_STATUS_NOTIFY_ATTACH_DFP = 1, // Host
-	 * USB_STATUS_NOTIFY_ATTACH_UFP = 2, // Device
-	 * USB_STATUS_NOTIFY_ATTACH_DRP = 3, // Dual role
-	 */
 
-	if (pdata->initialized == ON) {
-		switch (usb_status.drp) {
-		case USB_STATUS_NOTIFY_ATTACH_UFP:
-		case USB_STATUS_NOTIFY_ATTACH_DFP:
-		case USB_STATUS_NOTIFY_DETACH:
-			pr_info("%s - drp = %d attat = %d\n", ISG5320A_TAG, usb_status.drp,
-				usb_status.attach);
-			isg5320a_force_calibration(pdata, true);
-			break;
-		default:
-			pr_info("%s - DRP type : %d\n", ISG5320A_TAG, usb_status.drp);
-			break;
-		}
-	}
-
-	pre_attach = usb_status.attach;
-
-	return 0;
-}
-#elif IS_ENABLED(CONFIG_MUIC_NOTIFIER)
-static int isg5320a_cpuidle_muic_notifier(struct notifier_block *nb,
-					  unsigned long action, void *muic_data)
-{
-
-	muic_attached_dev_t attached_dev = *(muic_attached_dev_t *)muic_data;
-
-	struct isg5320a_data *data = container_of(nb, struct isg5320a_data,
-						  cpuidle_muic_nb);
-
-	switch (attached_dev) {
-	case ATTACHED_DEV_OTG_MUIC:
-	case ATTACHED_DEV_USB_MUIC:
-	case ATTACHED_DEV_TA_MUIC:
-	case ATTACHED_DEV_AFC_CHARGER_PREPARE_MUIC:
-	case ATTACHED_DEV_AFC_CHARGER_9V_MUIC:
-		if (action == MUIC_NOTIFY_CMD_ATTACH)
-			pr_info("%s TA/USB is inserted\n", ISG5320A_TAG);
-		else if (action == MUIC_NOTIFY_CMD_DETACH)
-			pr_info("%s TA/USB is removed\n", ISG5320A_TAG);
-
+	switch (vbus_type) {
+	case STATUS_VBUS_HIGH:
 		if (data->initialized == ON)
 			isg5320a_force_calibration(data, true);
-		else
-			pr_info("%s not initialized\n", ISG5320A_TAG);
-
+		pr_info("%s TA/USB is inserted\n", ISG5320A_TAG);
+		break;
+	case STATUS_VBUS_LOW:
+		if (data->initialized == ON)
+			isg5320a_force_calibration(data, true);
+		pr_info("%s TA/USB is removed\n", ISG5320A_TAG);
 		break;
 	default:
+		pr_info("%s not initialized\n", ISG5320A_TAG);
 		break;
 	}
 
-	pr_info("%s dev=%d, action=%lu\n", ISG5320A_TAG, attached_dev, action);
-
-	return NOTIFY_DONE;
+	vbus_pre_attach = vbus_type;
+	return 0;
 }
 #endif
 
@@ -1780,18 +1728,9 @@ static int isg5320a_probe(struct i2c_client *client,
 	isg5320a_set_mode(data, ISG5320A_MODE_NORMAL);
 	isg5320a_set_debug_work(data, ON, 2000);
 #endif
-
-#if IS_ENABLED(CONFIG_PDIC_NOTIFIER) && IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-	manager_notifier_register(&data->cpuidle_ccic_nb,
-				  isg5320a_ccic_handle_notification,
-				  MANAGER_NOTIFY_PDIC_SENSORHUB);
-#elif IS_ENABLED(CONFIG_CCIC_NOTIFIER) && IS_ENABLED(CONFIG_USB_TYPEC_MANAGER_NOTIFIER)
-	manager_notifier_register(&data->cpuidle_ccic_nb,
-				  isg5320a_ccic_handle_notification,
-				  MANAGER_NOTIFY_CCIC_SENSORHUB);
-#elif IS_ENABLED(CONFIG_MUIC_NOTIFIER)
-	muic_notifier_register(&data->cpuidle_muic_nb,
-			       isg5320a_cpuidle_muic_notifier, MUIC_NOTIFY_DEV_CPUIDLE);
+#if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
+	vbus_notifier_register(&data->vbus_nb,
+		isg5320a_cpuidle_vbus_notifier, VBUS_NOTIFY_DEV_CHARGER);
 #endif
 
 	pr_info("%s ### IMAGIS probe done ###\n", ISG5320A_TAG);

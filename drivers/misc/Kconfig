@@ -554,6 +554,7 @@ source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/mediatek/Kconfig"
+source "drivers/misc/tzdev/4.1/Kconfig"
 source "drivers/misc/tzdev/Kconfig"
 source "drivers/misc/tui/Kconfig"
 endmenu

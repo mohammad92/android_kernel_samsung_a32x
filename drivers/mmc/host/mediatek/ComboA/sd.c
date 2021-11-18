@@ -741,11 +741,9 @@ static void msdc_set_busy_timeout_ms(struct msdc_host *host, u32 ms)
 	}
 	MSDC_SET_FIELD(SDC_CFG, SDC_CFG_WRDTOC, (u32)timeout);
 
-	N_MSG(OPS, "Set CMD%d busy tmo: %dms(%d x1M cycles), freq=%dKHz\n",
-		host->cmd->opcode,
+	N_MSG(OPS, "Set busy tmo: %dms(%d x1M cycles), freq=%dKHz\n",
 		(ms > host->max_busy_timeout_ms) ? host->max_busy_timeout_ms :
-		ms,
-		(u32)timeout + 1, (host->sclk / 1000));
+		ms, (u32)timeout + 1, (host->sclk / 1000));
 }
 
 static void msdc_set_timeout(struct msdc_host *host, u32 ns, u32 clks)
@@ -5524,6 +5522,7 @@ static ssize_t mmc_summary_show(struct device *dev,
 			bus_speed_mode = "LEGACY";
 
 		/* SUMMARY */
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 		sprintf(buf, "\"MANID\":\"0x%02X\",\"PNM\":\"%s\","\
 				"\"REV\":\"%#x%x%x%x\",\"CQ\":\"%d\","\
 				"\"SIZE\":\"%s\",\"SPEEDMODE\":\"%s\","\
@@ -5540,14 +5539,38 @@ static ssize_t mmc_summary_show(struct device *dev,
 				 card->ext_csd.device_life_time_est_typ_a :
 				 card->ext_csd.device_life_time_est_typ_b)
 		       );
+#else
+			sprintf(buf, "\"MANID\":\"0x%02X\",\"PNM\":\"%s\","\
+				"\"REV\":\"%#x%x%x%x\","\
+				"\"SIZE\":\"%s\",\"SPEEDMODE\":\"%s\","\
+				"\"LIFE\":\"%u\"\n",
+				card->cid.manfid, card->cid.prod_name,
+				(char)card->ext_csd.fwrev[4],
+				(char)card->ext_csd.fwrev[5],
+				(char)card->ext_csd.fwrev[6],
+				(char)card->ext_csd.fwrev[7],
+				ret_size, bus_speed_mode,
+				(card->ext_csd.device_life_time_est_typ_a >
+				 card->ext_csd.device_life_time_est_typ_b ?
+				 card->ext_csd.device_life_time_est_typ_a :
+				 card->ext_csd.device_life_time_est_typ_b)
+		       );
+#endif
 		dev_info(dev, "%s", buf);
 		return sprintf(buf, "%s", buf);
 	} else {
 		/* SUMMARY : No MMC Case */
 		dev_info(dev, "%s : No eMMC Card\n", __func__);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 		return sprintf(buf, "\"MANID\":\"NoCard\",\"PNM\":\"NoCard\",\"REV\":\"NoCard\""\
 				",\"CQ\":\"NoCard\",\"SIZE\":\"NoCard\",\"SPEEDMODE\":\"NoCard\""\
 				",\"LIFE\":\"NoCard\"\n");
+#else
+	
+		return sprintf(buf, "\"MANID\":\"NoCard\",\"PNM\":\"NoCard\",\"REV\":\"NoCard\""\
+				",\"SIZE\":\"NoCard\",\"SPEEDMODE\":\"NoCard\""\
+				",\"LIFE\":\"NoCard\"\n");
+#endif
 	}
 }
 
@@ -5777,7 +5800,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (!mmc->f_max)
 		mmc->f_max = HOST_MAX_MCLK;
 
-	mmc->trigger_card_event = true;
+	if (host->hw->host_function == MSDC_SD)
+		mmc->trigger_card_event = true;
 
 	if ((hw->flags & MSDC_SDIO_IRQ) || (hw->flags & MSDC_EXT_SDIO_IRQ))
 		mmc->caps |= MMC_CAP_SDIO_IRQ;  /* yes for sdio */
@@ -5817,8 +5841,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	 * R1B will change to R1, host will not detect DAT0 busy,
 	 * next CMD may send to eMMC at busy state.
 	 */
-	mmc->max_busy_timeout = 0;
-
+	if (host->id == 0)
+		mmc->max_busy_timeout = 0;
+	else if (host->id == 1)
+		mmc->max_busy_timeout = SD_ERASE_TIMEOUT_MS;
 	/* MMC core transfer sizes tunable parameters */
 	mmc->max_segs = MAX_HW_SGMTS;
 	/* mmc->max_phys_segs = MAX_PHY_SGMTS; */

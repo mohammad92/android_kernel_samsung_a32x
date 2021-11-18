@@ -18,13 +18,4 @@ extern void set_lcm(struct LCM_setting_table_V3 *para_tbl,
 extern int read_lcm(unsigned char cmd, unsigned char *buf,
 		unsigned char buf_size, bool sendhs, bool need_lock,
 		unsigned char offset);
-
-#if defined(CONFIG_SMCDSD_PANEL)
-// add from jihoonn.kim in samsung because ALPS05482657
-extern void set_lcm_with_check_framedone(struct LCM_setting_table_V3 *para_tbl,
-			unsigned int size, bool hs, bool need_lock, bool wait_framedone);
-extern int read_lcm_with_check_framedone(unsigned char cmd, unsigned char *buf,
-		unsigned char buf_size, bool sendhs, bool need_lock,
-		unsigned char offset, bool wait_framedone);
-#endif
 #endif

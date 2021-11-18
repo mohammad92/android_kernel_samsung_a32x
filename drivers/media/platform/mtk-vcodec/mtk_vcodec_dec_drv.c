@@ -390,7 +390,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	register_pm_notifier(&dev->pm_notifier);
 	dev->is_codec_suspending = 0;
 	dev->dec_cnt = 0;
-
+	//vdec_dev = dev;
 	return 0;
 
 err_dec_reg:

@@ -378,11 +378,11 @@ int mtk_cfg80211_del_key(struct wiphy *wiphy,
 		return -EINVAL;
 
 	if (mac_addr) {
-		DBGLOG_LIMITED(RSN, TRACE,
+		DBGLOG(RSN, TRACE,
 		       "keyIdx = %d pairwise = %d mac = " MACSTR "\n",
 		       key_index, pairwise, MAC2STR(mac_addr));
 	} else {
-		DBGLOG_LIMITED(RSN, TRACE,
+		DBGLOG(RSN, TRACE,
 			"keyIdx = %d pairwise = %d null mac\n",
 		       key_index, pairwise);
 	}

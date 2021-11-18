@@ -19,6 +19,8 @@
 #define AP_GPIO_COUNT   203
 #elif defined(CONFIG_MACH_MT6768)
 #define AP_GPIO_COUNT   180
+#elif defined(CONFIG_MACH_MT6739)
+#define AP_GPIO_COUNT   164
 #endif
 
 #define GET_RESULT_GPIO(a, b, c)        \

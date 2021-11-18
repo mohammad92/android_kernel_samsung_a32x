@@ -29,6 +29,7 @@
 #endif
 
 #ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+#include "function/u_ether.h"
 extern int terminal_ctrl_request(struct usb_composite_dev *cdev,
 	const struct usb_ctrlrequest *ctrl);
 #endif
@@ -43,6 +44,23 @@ static int index;
 
 char *serial_string;
 int serial_idx;
+
+#ifdef CONFIG_USB_TYPEC_MANAGER_NOTIFIER
+void set_usb_enumeration_state(int state);
+#else
+static int usb_enum_state;
+void set_usb_enumeration_state(int state)
+{
+	if(usb_enum_state != state)
+		usb_enum_state = state;
+}
+
+bool get_usb_enumeration_state(void)
+{
+	return usb_enum_state? 1: 0;
+}
+EXPORT_SYMBOL(get_usb_enumeration_state);
+#endif
 
 struct device *create_function_device(char *name)
 {
@@ -507,6 +525,12 @@ static int config_usb_cfg_link(
 			struct usb_function_instance, group);
 	struct usb_function_instance *a_fi;
 	struct usb_function *f;
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	static u8	   ethaddr[ETH_ALEN]={0,};
+	int i;
+	char *src;
+	struct gadget_strings *gs;
+#endif
 	int ret;
 
 	pr_info("%s %s<-->%s\n", __func__,
@@ -532,6 +556,30 @@ static int config_usb_cfg_link(
 			goto out;
 		}
 	}
+	/* usb tethering */
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	if (fi->set_inst_eth_addr) {
+		list_for_each_entry(gs, &gi->string_list, list) {
+			src = gs->serialnumber;
+		}
+
+		if (src) {
+			for (i = 0; i < ETH_ALEN; i++)
+				ethaddr[i] = 0;
+			/* create a fake MAC address from our serial number.
+			 * first byte is 0x02 to signify locally administered.
+			 */
+			ethaddr[0] = 0x02;
+			for (i = 0; (i < 256) && *src; i++) {
+				/* XOR the USB serial across the remaining bytes */
+				ethaddr[i % (ETH_ALEN - 1) + 1] ^= *src++;
+			}
+
+			fi->set_inst_eth_addr(fi, ethaddr);
+		}
+	}
+#endif
+
 
 	f = usb_get_function(fi);
 	if (IS_ERR(f)) {
@@ -1568,6 +1616,7 @@ static void android_work(struct work_struct *data)
 #ifdef CONFIG_USB_NOTIFY_PROC_LOG
 		store_usblog_notify(NOTIFY_USBSTATE, (void *)connected[0], NULL);
 #endif
+		set_usb_enumeration_state(cdev->desc.bcdUSB);
 	}
 
 	if (status[1]) {
@@ -1597,6 +1646,9 @@ static void android_work(struct work_struct *data)
 		uevent_sent = true;
 #ifdef CONFIG_USB_NOTIFY_PROC_LOG
 		store_usblog_notify(NOTIFY_USBSTATE, (void *)disconnected[0], NULL);
+#endif
+#ifndef CONFIG_USB_TYPEC_MANAGER_NOTIFIER
+		set_usb_enumeration_state(0);
 #endif
 	}
 
@@ -1956,9 +2008,23 @@ out:
 
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+static ssize_t
+bcdUSB_show(struct device *pdev, struct device_attribute *attr, char *buf)
+{
+	struct gadget_info *dev = dev_get_drvdata(pdev);
+
+	return sprintf(buf, "%04x\n", dev->cdev.desc.bcdUSB);
+
+}
+static DEVICE_ATTR(bcdUSB, S_IRUGO, bcdUSB_show, NULL);
+#endif
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_state,
 	&dev_attr_iSerial,
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	&dev_attr_bcdUSB,
+#endif
 	NULL
 };
 

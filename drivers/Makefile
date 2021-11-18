@@ -192,8 +192,8 @@ obj-$(CONFIG_SWITCH)	+= switch/
 # uH
 obj-$(CONFIG_UH)		+= uh/
 
-# grip sensor
-obj-y				+= sensors/
+#Sensor
+obj-$(CONFIG_SENSORS)		+= sensors/
 
 # SPU signature verify
 obj-$(CONFIG_SPU_VERIFY) += spu_verify/

@@ -943,7 +943,8 @@ PROC_FOPS_RW(scp_resrc_req);
 static int mt_scp_dvfs_create_procfs(void)
 {
 	struct proc_dir_entry *dir = NULL;
-	int i, ret = 0;
+	unsigned long i;
+	int ret = 0;
 
 	struct pentry {
 		const char *name;

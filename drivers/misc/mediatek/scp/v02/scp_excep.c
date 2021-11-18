@@ -28,6 +28,10 @@
 #include "scp_feature_define.h"
 #include "scp_l1c.h"
 
+#ifdef CONFIG_SHUB
+#include "../../../../sensorhub/vendor/shub_mtk_helper.h"
+#endif
+
 struct scp_dump_st {
 	uint8_t *detail_buff;
 	uint8_t *ramdump;
@@ -359,7 +363,9 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 	pr_debug("scp_aed_title=%s\n", scp_aed_title);
 
 	scp_prepare_aed_dump(scp_aed_title, id);
-
+#ifdef CONFIG_SHUB
+	shub_dump_write_file((void *)scp_dump.ramdump, scp_dump.ramdump_length);
+#endif
 	/* scp aed api, only detail information available*/
 	aed_common_exception_api("scp", NULL, 0, NULL, 0,
 			scp_dump.detail_buff, DB_OPT_DEFAULT);

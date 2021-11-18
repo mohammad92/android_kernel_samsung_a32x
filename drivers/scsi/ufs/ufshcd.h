@@ -1522,15 +1522,6 @@ static inline void ufshcd_vops_device_reset(struct ufs_hba *hba)
 	}
 }
 
-static u8 ufshcd_tw_get_query_index(struct ufs_hba *hba)
-{
-	if (hba->b_tw_buffer_type == WB_BUF_MODE_LU_DEDICATED) {
-		printk("UFS_TEST %s, tw lu: %u\n", __func__, hba->wb_dedicated_lu);
-		return hba->wb_dedicated_lu;
-	}
-
-	return 0;
-}
 
 #define UFS_DEV_ATTR(name, fmt, args...)					\
 static ssize_t ufs_##name##_show (struct device *dev, struct device_attribute *attr, char *buf)	\

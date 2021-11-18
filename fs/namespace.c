@@ -32,6 +32,9 @@
 #include <linux/slub_def.h>
 #include <linux/kdp.h>
 #endif
+#ifdef CONFIG_RUSTUH_KDP_NS
+#include <linux/rustkdp.h>
+#endif
 #include "pnode.h"
 #include "internal.h"
 
@@ -182,7 +185,7 @@ static inline int is_exception(char *comm)
 
 static inline void sys_umount_trace_print(struct mount *mnt, int flags)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	struct super_block *sb = mnt->mnt->mnt_sb;
 	int mnt_flags = mnt->mnt->mnt_flags;
 #else
@@ -384,7 +387,7 @@ static void drop_mountpoint(struct fs_pin *p)
 	struct mount *m = container_of(p, struct mount, mnt_umount);
 	dput(m->mnt_ex_mountpoint);
 	pin_remove(p);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	mntput(m->mnt);
 #else
 	mntput(&m->mnt);
@@ -402,6 +405,11 @@ static struct mount *alloc_vfsmnt(const char *name)
 			goto out_free_cache;
 #ifdef CONFIG_KDP_NS
 		err = mnt_alloc_vfsmount(mnt);
+		if (err)
+			goto out_free_cache;
+#endif
+#ifdef CONFIG_RUSTUH_KDP_NS
+		err = kdp_mnt_alloc_vfsmount(mnt);
 		if (err)
 			goto out_free_cache;
 #endif
@@ -423,6 +431,8 @@ static struct mount *alloc_vfsmnt(const char *name)
 #endif
 #ifdef CONFIG_KDP_NS
 		rkp_set_data(mnt->mnt, NULL);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		kdp_set_ns_data(mnt->mnt, NULL);
 #else
 		mnt->mnt.data = NULL;
 #endif
@@ -553,7 +563,7 @@ int __mnt_want_write(struct vfsmount *m)
 	 * incremented count after it has set MNT_WRITE_HOLD.
 	 */
 	smp_mb();
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	while (ACCESS_ONCE(mnt->mnt->mnt_flags) & MNT_WRITE_HOLD)
 #else
 	while (ACCESS_ONCE(mnt->mnt.mnt_flags) & MNT_WRITE_HOLD)
@@ -761,6 +771,8 @@ static int mnt_make_readonly(struct mount *mnt)
 	lock_mount_hash();
 #ifdef CONFIG_KDP_NS
 	rkp_set_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_set_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
 #else
 	mnt->mnt.mnt_flags |= MNT_WRITE_HOLD;
 #endif
@@ -791,6 +803,8 @@ static int mnt_make_readonly(struct mount *mnt)
 	else
 #ifdef CONFIG_KDP_NS
 		rkp_set_mnt_flags(mnt->mnt, MNT_READONLY);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		kdp_set_mnt_flags(mnt->mnt, MNT_READONLY);
 #else
 		mnt->mnt.mnt_flags |= MNT_READONLY;
 #endif
@@ -801,6 +815,8 @@ static int mnt_make_readonly(struct mount *mnt)
 	smp_wmb();
 #ifdef CONFIG_KDP_NS
 	rkp_reset_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_clear_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
 #else
 	mnt->mnt.mnt_flags &= ~MNT_WRITE_HOLD;
 #endif
@@ -813,6 +829,8 @@ static void __mnt_unmake_readonly(struct mount *mnt)
 	lock_mount_hash();
 #ifdef CONFIG_KDP_NS
 	rkp_reset_mnt_flags(mnt->mnt, MNT_READONLY);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_clear_mnt_flags(mnt->mnt, MNT_READONLY);
 #else
 	mnt->mnt.mnt_flags &= ~MNT_READONLY;
 #endif
@@ -833,6 +851,9 @@ int sb_prepare_remount_readonly(struct super_block *sb)
 #ifdef CONFIG_KDP_NS
 		if (!(mnt->mnt->mnt_flags & MNT_READONLY)) {
 			rkp_set_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		if (!(mnt->mnt->mnt_flags & MNT_READONLY)) {
+			kdp_set_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
 #else
 		if (!(mnt->mnt.mnt_flags & MNT_READONLY)) {
 			mnt->mnt.mnt_flags |= MNT_WRITE_HOLD;
@@ -855,6 +876,9 @@ int sb_prepare_remount_readonly(struct super_block *sb)
 #ifdef CONFIG_KDP_NS
 		if (mnt->mnt->mnt_flags & MNT_WRITE_HOLD)
 			rkp_reset_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		if (mnt->mnt->mnt_flags & MNT_WRITE_HOLD)
+			kdp_clear_mnt_flags(mnt->mnt, MNT_WRITE_HOLD);
 #else
 		if (mnt->mnt.mnt_flags & MNT_WRITE_HOLD)
 			mnt->mnt.mnt_flags &= ~MNT_WRITE_HOLD;
@@ -871,7 +895,7 @@ extern int rkp_from_vfsmnt_cache(unsigned long addr);
 
 static void free_vfsmnt(struct mount *mnt)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	kfree(mnt->mnt->data);
 #else
 	kfree(mnt->mnt.data);
@@ -884,6 +908,9 @@ static void free_vfsmnt(struct mount *mnt)
 	if (mnt->mnt &&
 		rkp_from_vfsmnt_cache((unsigned long)mnt->mnt))
 		kmem_cache_free(vfsmnt_cache, mnt->mnt);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	if(mnt->mnt && is_kdp_vfsmnt_cache((unsigned long)mnt->mnt))
+		kdp_free_vfsmount(mnt->mnt);
 #endif
 	kmem_cache_free(mnt_cache, mnt);
 }
@@ -945,7 +972,7 @@ struct mount *__lookup_mnt(struct vfsmount *mnt, struct dentry *dentry)
 	struct mount *p;
 
 	hlist_for_each_entry_rcu(p, head, mnt_hash)
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (p->mnt_parent->mnt == mnt && p->mnt_mountpoint == dentry)
 #else
 		if (&p->mnt_parent->mnt == mnt && p->mnt_mountpoint == dentry)
@@ -980,7 +1007,7 @@ struct vfsmount *lookup_mnt(const struct path *path)
 	do {
 		seq = read_seqbegin(&mount_lock);
 		child_mnt = __lookup_mnt(path->mnt, path->dentry);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		m = child_mnt ? child_mnt->mnt : NULL;
 #else
 		m = child_mnt ? &child_mnt->mnt : NULL;
@@ -1135,7 +1162,7 @@ static void __touch_mnt_namespace(struct mnt_namespace *ns)
 static void unhash_mnt(struct mount *mnt)
 {
 	mnt->mnt_parent = mnt;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	mnt->mnt_mountpoint = mnt->mnt->mnt_root;
 #else
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
@@ -1153,7 +1180,7 @@ static void unhash_mnt(struct mount *mnt)
 static void detach_mnt(struct mount *mnt, struct path *old_path)
 {
 	old_path->dentry = mnt->mnt_mountpoint;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	old_path->mnt = mnt->mnt_parent->mnt;
 #else
 	old_path->mnt = &mnt->mnt_parent->mnt;
@@ -1188,7 +1215,7 @@ void mnt_set_mountpoint(struct mount *mnt,
 
 static void __attach_mnt(struct mount *mnt, struct mount *parent)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	hlist_add_head_rcu(&mnt->mnt_hash,
 			   m_hash(parent->mnt, mnt->mnt_mountpoint));
 #else
@@ -1309,6 +1336,9 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 #ifdef CONFIG_KDP_NS
 		rkp_set_data(mnt->mnt, type->alloc_mnt_data());
 		if (!mnt->mnt->data) {
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		kdp_set_ns_data(mnt->mnt, type->alloc_mnt_data());
+		if (!mnt->mnt->data) {
 #else
 		mnt->mnt.data = type->alloc_mnt_data();
 		if (!mnt->mnt.data) {
@@ -1321,6 +1351,10 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	if (flags & SB_KERNMOUNT)
 #ifdef CONFIG_KDP_NS
 		rkp_set_mnt_flags(mnt->mnt, MNT_INTERNAL);
+
+	root = mount_fs(type, flags, name, mnt->mnt, data);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		kdp_set_mnt_flags(mnt->mnt, MNT_INTERNAL);
 
 	root = mount_fs(type, flags, name, mnt->mnt, data);
 #else
@@ -1336,6 +1370,9 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 #ifdef CONFIG_KDP_NS
 	rkp_set_mnt_root_sb(mnt->mnt, root, root->d_sb);
 	mnt->mnt_mountpoint = mnt->mnt->mnt_root;
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_set_mnt_root_sb(mnt->mnt, root, root->d_sb);
+	mnt->mnt_mountpoint = mnt->mnt->mnt_root;
 #else
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = root->d_sb;
@@ -1345,7 +1382,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &root->d_sb->s_mounts);
 	unlock_mount_hash();
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	return mnt->mnt;
 #else
 	return &mnt->mnt;
@@ -1371,14 +1408,14 @@ EXPORT_SYMBOL_GPL(vfs_submount);
 static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 					int flag)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	struct super_block *sb = old->mnt->mnt_sb;
 #else
 	struct super_block *sb = old->mnt.mnt_sb;
 #endif
 	struct mount *mnt;
 	int err;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	int nsflags;
 #endif
 
@@ -1389,6 +1426,9 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	if (sb->s_op->clone_mnt_data) {
 #ifdef CONFIG_KDP_NS
 		rkp_set_data(mnt->mnt, sb->s_op->clone_mnt_data(old->mnt->data));
+		if (!mnt->mnt->data) {
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		kdp_set_ns_data(mnt->mnt, sb->s_op->clone_mnt_data(old->mnt->data));
 		if (!mnt->mnt->data) {
 #else
 		mnt->mnt.data = sb->s_op->clone_mnt_data(old->mnt.data);
@@ -1409,8 +1449,7 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 		if (err)
 			goto out_free;
 	}
-
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	nsflags = old->mnt->mnt_flags & ~(MNT_WRITE_HOLD|MNT_MARKED|MNT_INTERNAL);
 	/* Don't allow unprivileged users to change mount flags */
 	if (flag & CL_UNPRIVILEGED) {
@@ -1431,8 +1470,12 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	if ((flag & CL_UNPRIVILEGED) &&
 	    (!(flag & CL_EXPIRE) || list_empty(&old->mnt_expire)))
 		nsflags |= MNT_LOCKED;
+#ifdef CONFIG_KDP_NS
 	rkp_assign_mnt_flags(mnt->mnt, nsflags);
-#else
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_assign_mnt_flags(mnt->mnt, nsflags);
+#endif
+#else //else for defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	mnt->mnt.mnt_flags = old->mnt.mnt_flags;
 	mnt->mnt.mnt_flags &= ~(MNT_WRITE_HOLD|MNT_MARKED|MNT_INTERNAL);
 	/* Don't allow unprivileged users to change mount flags */
@@ -1460,6 +1503,9 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
 	atomic_inc(&sb->s_active);
 #ifdef CONFIG_KDP_NS
 	rkp_set_mnt_root_sb(mnt->mnt, dget(root), sb);
+	mnt->mnt_mountpoint = mnt->mnt->mnt_root;
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_set_mnt_root_sb(mnt->mnt, dget(root), sb);
 	mnt->mnt_mountpoint = mnt->mnt->mnt_root;
 #else
 	mnt->mnt.mnt_sb = sb;
@@ -1518,7 +1564,7 @@ static void cleanup_mnt(struct mount *mnt)
 	WARN_ON(mnt_get_writers(mnt));
 	if (unlikely(mnt->mnt_pins.first))
 		mnt_pin_kill(mnt);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	fsnotify_vfsmount_delete(mnt->mnt);
 	dput(mnt->mnt->mnt_root);
 	deactivate_super(mnt->mnt->mnt_sb);
@@ -1585,7 +1631,7 @@ static void mntput_no_expire(struct mount *mnt)
 		return;
 	}
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (unlikely(mnt->mnt->mnt_flags & MNT_DOOMED)) {
 #else
 	if (unlikely(mnt->mnt.mnt_flags & MNT_DOOMED)) {
@@ -1596,6 +1642,8 @@ static void mntput_no_expire(struct mount *mnt)
 	}
 #ifdef CONFIG_KDP_NS
 	rkp_set_mnt_flags(mnt->mnt, MNT_DOOMED);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_set_mnt_flags(mnt->mnt, MNT_DOOMED);
 #else
 	mnt->mnt.mnt_flags |= MNT_DOOMED;
 #endif
@@ -1611,7 +1659,7 @@ static void mntput_no_expire(struct mount *mnt)
 	}
 	unlock_mount_hash();
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (likely(!(mnt->mnt->mnt_flags & MNT_INTERNAL))) {
 #else
 	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
@@ -1691,6 +1739,9 @@ struct vfsmount *mnt_clone_internal(const struct path *path)
 #ifdef CONFIG_KDP_NS
 	rkp_set_mnt_flags(p->mnt, MNT_INTERNAL);
 	return p->mnt;
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_set_mnt_flags(p->mnt, MNT_INTERNAL);
+	return p->mnt;
 #else
 	p->mnt.mnt_flags |= MNT_INTERNAL;
 	return &p->mnt;
@@ -1738,7 +1789,7 @@ static int m_show(struct seq_file *m, void *v)
 {
 	struct proc_mounts *p = m->private;
 	struct mount *r = list_entry(v, struct mount, mnt_list);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	return p->show(m, r->mnt);
 #else
 	return p->show(m, &r->mnt);
@@ -1855,7 +1906,7 @@ static bool disconnect_mount(struct mount *mnt, enum umount_tree_flags how)
 	 * unmounted and connected, umounted mounts may not be
 	 * connected to mounted mounts.
 	 */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (!(mnt->mnt_parent->mnt->mnt_flags & MNT_UMOUNT))
 		return true;
 #else
@@ -1890,6 +1941,8 @@ static void umount_tree(struct mount *mnt, enum umount_tree_flags how)
 	for (p = mnt; p; p = next_mnt(p, mnt)) {
 #ifdef CONFIG_KDP_NS
 		rkp_set_mnt_flags(p->mnt, MNT_UMOUNT);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		kdp_set_mnt_flags(p->mnt, MNT_UMOUNT);
 #else
 		p->mnt.mnt_flags |= MNT_UMOUNT;
 #endif
@@ -1920,12 +1973,14 @@ static void umount_tree(struct mount *mnt, enum umount_tree_flags how)
 		if (how & UMOUNT_SYNC)
 #ifdef CONFIG_KDP_NS
 		rkp_set_mnt_flags(p->mnt, MNT_SYNC_UMOUNT);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+			kdp_set_mnt_flags(p->mnt, MNT_SYNC_UMOUNT);
 #else
 			p->mnt.mnt_flags |= MNT_SYNC_UMOUNT;
 #endif
 		disconnect = disconnect_mount(p, how);
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		pin_insert_group(&p->mnt_umount, p->mnt_parent->mnt,
 #else
 		pin_insert_group(&p->mnt_umount, &p->mnt_parent->mnt,
@@ -1948,14 +2003,14 @@ static void shrink_submounts(struct mount *mnt);
 
 static int do_umount(struct mount *mnt, int flags)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	struct super_block *sb = mnt->mnt->mnt_sb;
 #else
 	struct super_block *sb = mnt->mnt.mnt_sb;
 #endif
 	int retval;
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	retval = security_sb_umount(mnt->mnt, flags);
 #else
 	retval = security_sb_umount(&mnt->mnt, flags);
@@ -1970,7 +2025,7 @@ static int do_umount(struct mount *mnt, int flags)
 	 *  (2) the usage count == 1 [parent vfsmount] + 1 [sys_umount]
 	 */
 	if (flags & MNT_EXPIRE) {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (mnt->mnt == current->fs->root.mnt ||
 #else
 		if (&mnt->mnt == current->fs->root.mnt ||
@@ -2016,7 +2071,7 @@ static int do_umount(struct mount *mnt, int flags)
 	 * /reboot - static binary that would close all descriptors and
 	 * call reboot(9). Then init(8) could umount root and exec /reboot.
 	 */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (mnt->mnt == current->fs->root.mnt && !(flags & MNT_DETACH)) {
 #else
 	if (&mnt->mnt == current->fs->root.mnt && !(flags & MNT_DETACH)) {
@@ -2039,7 +2094,7 @@ static int do_umount(struct mount *mnt, int flags)
 
 	/* Recheck MNT_LOCKED with the locks held */
 	retval = -EINVAL;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (mnt->mnt->mnt_flags & MNT_LOCKED)
 #else
 	if (mnt->mnt.mnt_flags & MNT_LOCKED)
@@ -2090,7 +2145,7 @@ void __detach_mounts(struct dentry *dentry)
 	event++;
 	while (!hlist_empty(&mp->m_list)) {
 		mnt = hlist_entry(mp->m_list.first, struct mount, mnt_mp_list);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (mnt->mnt->mnt_flags & MNT_UMOUNT) {
 #else
 		if (mnt->mnt.mnt_flags & MNT_UMOUNT) {
@@ -2164,7 +2219,7 @@ SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 	if (!check_mnt(mnt))
 		goto dput_and_out;
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (mnt->mnt->mnt_flags & MNT_LOCKED)
 #else
 	if (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
@@ -2202,7 +2257,7 @@ dput_and_out:
 	}
 	if (!retval || (flags & MNT_FORCE)) {
 		/* filesystem needs to handle unclosed namespaces */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (mnt->mnt->mnt_sb->s_op->umount_end)
 			mnt->mnt->mnt_sb->s_op->umount_end(mnt->mnt->mnt_sb, flags);
 #else
@@ -2277,7 +2332,7 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 		for (s = r; s; s = next_mnt(s, r)) {
 			if (!(flag & CL_COPY_UNBINDABLE) &&
 			    IS_MNT_UNBINDABLE(s)) {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 				if (s->mnt->mnt_flags & MNT_LOCKED) {
 #else
 				if (s->mnt.mnt_flags & MNT_LOCKED) {
@@ -2291,7 +2346,7 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 				}
 			}
 			if (!(flag & CL_COPY_MNT_NS_FILE) &&
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			    is_mnt_ns_file(s->mnt->mnt_root)) {
 #else
 			    is_mnt_ns_file(s->mnt.mnt_root)) {
@@ -2305,7 +2360,7 @@ struct mount *copy_tree(struct mount *mnt, struct dentry *dentry,
 			}
 			p = s;
 			parent = q;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			q = clone_mnt(p, p->mnt->mnt_root, flag);
 #else
 			q = clone_mnt(p, p->mnt.mnt_root, flag);
@@ -2342,7 +2397,7 @@ struct vfsmount *collect_mounts(const struct path *path)
 	namespace_unlock();
 	if (IS_ERR(tree))
 		return ERR_CAST(tree);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	return tree->mnt;
 #else
 	return &tree->mnt;
@@ -2379,7 +2434,7 @@ struct vfsmount *clone_private_mount(const struct path *path)
 	if (IS_ERR(new_mnt))
 		return ERR_CAST(new_mnt);
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	return new_mnt->mnt;
 #else
 	return &new_mnt->mnt;
@@ -2395,7 +2450,7 @@ int iterate_mounts(int (*f)(struct vfsmount *, void *), void *arg,
 	if (res)
 		return res;
 	list_for_each_entry(mnt, &real_mount(root)->mnt_list, mnt_list) {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		res = f(mnt->mnt, arg);
 #else
 		res = f(&mnt->mnt, arg);
@@ -2533,7 +2588,7 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	/* Preallocate a mountpoint in case the new mounts need
 	 * to be tucked under other mounts.
 	 */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	smp = get_mountpoint(source_mnt->mnt->mnt_root);
 #else
 	smp = get_mountpoint(source_mnt->mnt.mnt_root);
@@ -2573,7 +2628,7 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	hlist_for_each_entry_safe(child, n, &tree_list, mnt_hash) {
 		struct mount *q;
 		hlist_del_init(&child->mnt_hash);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		q = __lookup_mnt(child->mnt_parent->mnt,
 #else
 		q = __lookup_mnt(&child->mnt_parent->mnt,
@@ -2649,7 +2704,7 @@ static void unlock_mount(struct mountpoint *where)
 
 static int graft_tree(struct mount *mnt, struct mount *p, struct mountpoint *mp)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (mnt->mnt->mnt_sb->s_flags & SB_NOUSER)
 #else
 	if (mnt->mnt.mnt_sb->s_flags & SB_NOUSER)
@@ -2657,7 +2712,7 @@ static int graft_tree(struct mount *mnt, struct mount *p, struct mountpoint *mp)
 		return -EINVAL;
 
 	if (d_is_dir(mp->m_dentry) !=
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	      d_is_dir(mnt->mnt->mnt_root))
 #else
 	      d_is_dir(mnt->mnt.mnt_root))
@@ -2726,7 +2781,7 @@ static bool has_locked_children(struct mount *mnt, struct dentry *dentry)
 		if (!is_subdir(child->mnt_mountpoint, dentry))
 			continue;
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (child->mnt->mnt_flags & MNT_LOCKED)
 #else
 		if (child->mnt.mnt_flags & MNT_LOCKED)
@@ -2789,6 +2844,8 @@ static int do_loopback(struct path *path, const char *old_name,
 
 #ifdef CONFIG_KDP_NS
 	rkp_reset_mnt_flags(mnt->mnt, MNT_LOCKED);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_clear_mnt_flags(mnt->mnt, MNT_LOCKED);
 #else
 	mnt->mnt.mnt_flags &= ~MNT_LOCKED;
 #endif
@@ -2846,7 +2903,7 @@ static int do_remount(struct path *path, int ms_flags, int sb_flags,
 	 * MNT_LOCK flags because those flags can never be cleared
 	 * once they are set.
 	 */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if ((mnt->mnt->mnt_flags & MNT_LOCK_READONLY) &&
 	    !(mnt_flags & MNT_READONLY)) {
 		return -EPERM;
@@ -2911,6 +2968,9 @@ static int do_remount(struct path *path, int ms_flags, int sb_flags,
 #ifdef CONFIG_KDP_NS
 		mnt_flags |= mnt->mnt->mnt_flags & ~MNT_USER_SETTABLE_MASK;
 		rkp_assign_mnt_flags(mnt->mnt, mnt_flags);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+		mnt_flags |= mnt->mnt->mnt_flags & ~MNT_USER_SETTABLE_MASK;
+		kdp_assign_mnt_flags(mnt->mnt, mnt_flags);
 #else
 		mnt_flags |= mnt->mnt.mnt_flags & ~MNT_USER_SETTABLE_MASK;
 		mnt->mnt.mnt_flags = mnt_flags;
@@ -2957,7 +3017,7 @@ static int do_move_mount(struct path *path, const char *old_name)
 	if (!check_mnt(p) || !check_mnt(old))
 		goto out1;
 
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (old->mnt->mnt_flags & MNT_LOCKED)
 #else
 	if (old->mnt.mnt_flags & MNT_LOCKED)
@@ -3057,7 +3117,7 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 
 	/* Refuse the same filesystem on the same mount point */
 	err = -EBUSY;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (path->mnt->mnt_sb == newmnt->mnt->mnt_sb &&
 #else
 	if (path->mnt->mnt_sb == newmnt->mnt.mnt_sb &&
@@ -3066,7 +3126,7 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 		goto unlock;
 
 	err = -EINVAL;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (d_is_symlink(newmnt->mnt->mnt_root))
 #else
 	if (d_is_symlink(newmnt->mnt.mnt_root))
@@ -3075,6 +3135,8 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 
 #ifdef CONFIG_KDP_NS
 	rkp_assign_mnt_flags(newmnt->mnt, mnt_flags);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_assign_mnt_flags(newmnt->mnt, mnt_flags);
 #else
 	newmnt->mnt.mnt_flags = mnt_flags;
 #endif
@@ -3166,7 +3228,14 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
 		rkp_populate_sb(dir_name, mnt);
 	kfree(buf);
 #endif
-
+#ifdef CONFIG_RUSTUH_KDP_NS
+	/* We check the value of error of do_add_mount */
+	if (err >= 0) {
+		err = kdp_do_new_mount(mnt, path);
+		if (err)
+			return err;
+	}
+#endif
 	return err;
 }
 
@@ -3274,7 +3343,7 @@ resume:
 		struct mount *mnt = list_entry(tmp, struct mount, mnt_child);
 
 		next = tmp->next;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (!(mnt->mnt->mnt_flags & MNT_SHRINKABLE))
 #else
 		if (!(mnt->mnt.mnt_flags & MNT_SHRINKABLE))
@@ -3582,7 +3651,7 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
 	if (user_ns != ns->user_ns)
 		copy_flags |= CL_SHARED_TO_SLAVE | CL_UNPRIVILEGED;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	new = copy_tree(old, old->mnt->mnt_root, copy_flags);
 #else
 	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
@@ -3606,7 +3675,7 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 		q->mnt_ns = new_ns;
 		new_ns->mounts++;
 		if (new_fs) {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			if (p->mnt == new_fs->root.mnt) {
 				new_fs->root.mnt = mntget(q->mnt);
 				rootmnt = p->mnt;
@@ -3616,7 +3685,7 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 				rootmnt = &p->mnt;
 #endif
 			}
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			if (p->mnt == new_fs->pwd.mnt) {
 				new_fs->pwd.mnt = mntget(q->mnt);
 				pwdmnt = p->mnt;
@@ -3631,7 +3700,7 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 		q = next_mnt(q, new);
 		if (!q)
 			break;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		while (p->mnt->mnt_root != q->mnt->mnt_root)
 #else
 		while (p->mnt.mnt_root != q->mnt.mnt_root)
@@ -3739,7 +3808,7 @@ out_type:
 bool is_path_reachable(struct mount *mnt, struct dentry *dentry,
 			 const struct path *root)
 {
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	while (mnt->mnt != root->mnt && mnt_has_parent(mnt)) {
 #else
 	while (&mnt->mnt != root->mnt && mnt_has_parent(mnt)) {
@@ -3748,7 +3817,7 @@ bool is_path_reachable(struct mount *mnt, struct dentry *dentry,
 		dentry = mnt->mnt_mountpoint;
 		mnt = mnt->mnt_parent;
 	}
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	return mnt->mnt == root->mnt && is_subdir(dentry, root->dentry);
 #else
 	return &mnt->mnt == root->mnt && is_subdir(dentry, root->dentry);
@@ -3829,7 +3898,7 @@ SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
 		goto out4;
 	if (!check_mnt(root_mnt) || !check_mnt(new_mnt))
 		goto out4;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	if (new_mnt->mnt->mnt_flags & MNT_LOCKED)
 #else
 	if (new_mnt->mnt.mnt_flags & MNT_LOCKED)
@@ -3865,6 +3934,11 @@ SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
 	if (root_mnt->mnt->mnt_flags & MNT_LOCKED) {
 		rkp_set_mnt_flags(new_mnt->mnt, MNT_LOCKED);
 		rkp_reset_mnt_flags(root_mnt->mnt, MNT_LOCKED);
+	}
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	if (root_mnt->mnt->mnt_flags & MNT_LOCKED) {
+		kdp_set_mnt_flags(new_mnt->mnt, MNT_LOCKED);
+		kdp_clear_mnt_flags(root_mnt->mnt, MNT_LOCKED);
 	}
 #else
 	if (root_mnt->mnt.mnt_flags & MNT_LOCKED) {
@@ -3918,6 +3992,9 @@ static void __init init_mount_tree(void)
 		uh_call(UH_APP_RKP, RKP_KDP_X56, (u64)&rootfs_sb, (u64)mnt, KDP_SB_ROOTFS, 0);
 	}
 #endif
+#ifdef CONFIG_RUSTUH_KDP_NS
+	kdp_init_mount_tree(mnt);
+#endif
 	ns = create_mnt_ns(mnt);
 	if (IS_ERR(ns))
 		panic("Can't allocate initial namespace");
@@ -3929,6 +4006,8 @@ static void __init init_mount_tree(void)
 	root.dentry = mnt->mnt_root;
 #ifdef CONFIG_KDP_NS
 	rkp_set_mnt_flags(mnt, MNT_LOCKED);
+#elif defined(CONFIG_RUSTUH_KDP_NS)
+	kdp_set_mnt_flags(mnt, MNT_LOCKED);
 #else
 	mnt->mnt_flags |= MNT_LOCKED;
 #endif
@@ -3964,7 +4043,9 @@ void __init mnt_init(void)
 										(u64)offsetof(struct vfsmount, data));
 	uh_call(UH_APP_RKP, RKP_KDP_X41, (u64)&nsparam, 0, 0, 0);
 #endif
-
+#ifdef CONFIG_RUSTUH_KDP_NS
+	kdp_mnt_init();
+#endif
 	mount_hashtable = alloc_large_system_hash("Mount-cache",
 				sizeof(struct hlist_head),
 				mhash_entries, 19,
@@ -3996,7 +4077,7 @@ void put_mnt_ns(struct mnt_namespace *ns)
 {
 	if (!atomic_dec_and_test(&ns->count))
 		return;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	drop_collected_mounts(ns->root->mnt);
 #else
 	drop_collected_mounts(&ns->root->mnt);
@@ -4043,7 +4124,7 @@ bool current_chrooted(void)
 	bool chrooted;
 
 	/* Find the namespace root */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	ns_root.mnt = current->nsproxy->mnt_ns->root->mnt;
 #else
 	ns_root.mnt = &current->nsproxy->mnt_ns->root->mnt;
@@ -4074,7 +4155,7 @@ static bool mnt_already_visible(struct mnt_namespace *ns, struct vfsmount *new,
 	list_for_each_entry(mnt, &ns->list, mnt_list) {
 		struct mount *child;
 		int mnt_flags;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		if (mnt->mnt->mnt_sb->s_type != new->mnt_sb->s_type)
 			continue;
 
@@ -4125,7 +4206,7 @@ static bool mnt_already_visible(struct mnt_namespace *ns, struct vfsmount *new,
 		list_for_each_entry(child, &mnt->mnt_mounts, mnt_child) {
 			struct inode *inode = child->mnt_mountpoint->d_inode;
 			/* Only worry about locked mounts */
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			if (!(child->mnt->mnt_flags & MNT_LOCKED))
 				continue;
 #else
@@ -4223,7 +4304,7 @@ static int mntns_install(struct nsproxy *nsproxy, struct ns_common *ns)
 	get_mnt_ns(mnt_ns);
 	old_mnt_ns = nsproxy->mnt_ns;
 	nsproxy->mnt_ns = mnt_ns;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	/* Find the root */
 	err = vfs_path_lookup(mnt_ns->root->mnt->mnt_root, mnt_ns->root->mnt,
 				"/", LOOKUP_DOWN, &root);

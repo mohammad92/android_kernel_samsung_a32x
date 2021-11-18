@@ -32,6 +32,7 @@
 
 #include "cam_cal.h"
 #include "imgsensor_sysfs.h"
+#include "kd_imgsensor_sysfs_adapter.h"
 
 #define DEV_NODE_NAME_PREFIX "camera_eeprom"
 #define DEV_NAME_FMT "camera_eeprom%u"
@@ -91,7 +92,7 @@ static unsigned int read_region(struct EEPROM_DRV_FD_DATA *pdata,
 		return 0;
 	}
 
-	if (imgsensor_sysfs_update(buf, pdata->sensor_info.device_id,
+	if (IMGSENSOR_SYSFS_UPDATE(buf, pdata->sensor_info.device_id,
 		pdata->sensor_info.sensor_id, offset, size, ret) < 0)
 		ret = 0;
 
@@ -249,7 +250,7 @@ long eeprom_ioctl_control_command(void *pBuff)
 	sensor_info.sensor_id = ((struct CAM_CAL_SENSOR_INFO *)pBuff)->sensor_id;
 	sensor_info.device_id = ((struct CAM_CAL_SENSOR_INFO *)pBuff)->device_id;
 	sensor_info.command = ((struct CAM_CAL_SENSOR_INFO *)pBuff)->command;
-	rom_addr = imgsensor_sys_get_rom_addr_by_id(sensor_info.device_id, sensor_info.sensor_id);
+	rom_addr = IMGSENSOR_SYSGET_ROM_ADDR_BY_ID(sensor_info.device_id, sensor_info.sensor_id);
 	if (rom_addr == NULL) {
 		pr_err("[%s] rom_addr is NULL", __func__);
 		return -EFAULT;

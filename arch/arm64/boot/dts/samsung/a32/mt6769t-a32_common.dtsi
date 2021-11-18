@@ -31,8 +31,23 @@
 				new_factory;
 				dcd_timeout;
 			};
+			reserved-memory {
+				ion-rbin-heap {
+					compatible = "mediatek,ion-rbin-heap";
+					ion,recyclable;
+					size = <0 0xC800000>;
+					alignment = <0 0x1000>;
+					alloc-ranges = <0 0x40000000 0 0x80000000>;
+				};
+			};			
+
 		};
 	};
+};
+
+&i2c3 {
+	ch_offset_default = <0x100>;
+	ch_offset_ccu = <0x200>;
 };
 
 &i2c7 {
@@ -102,4 +117,23 @@
 	headset-vol-threshold = <0 638 639 2000 2600>;
 	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
 	headset-four-key-threshold = <0 165 197 280 550>;
+};
+
+&usb_tuning {
+	/* term_vref_sel */
+	tune@4 {
+		value = <0x3>;
+	};
+	/* hstx_srctrl */
+	tune@7 {
+		value = <0x0>;
+	};
+	/* sqth */
+	tune@9 {
+		value = <0x0>;
+	};
+	/* discth */
+	tune@10 {
+		value = <0x6>;
+	};
 };

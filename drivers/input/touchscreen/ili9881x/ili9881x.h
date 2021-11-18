@@ -201,6 +201,10 @@ do {									\
 #define DO_SPI_RECOVER		-2
 #define DO_I2C_RECOVER		-3
 
+#ifdef CONFIG_BATTERY_SAMSUNG
+extern unsigned int lpcharge;
+#endif
+
 enum TP_SPI_CLK_LIST {
 	TP_SPI_CLK_1M = 1000000,
 	TP_SPI_CLK_2M = 2000000,
@@ -1014,6 +1018,7 @@ struct ilitek_ts_data {
 	bool ddi_rest_done;
 	bool resume_by_ddi;
 	bool tp_suspend;
+	bool tp_shutdown;
 	bool info_from_hex;
 	bool prox_near;
 	bool gesture_load_code;

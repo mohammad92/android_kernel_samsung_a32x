@@ -45,6 +45,19 @@ enum imgsensor_crc32_check_list {
 	CRC32_SCENARIO_MAX,
 };
 
+enum imgsensor_cal_command {
+	GET_CAL_CROSSTALK = 0,
+	GET_CAL_OIS,
+};
+
+enum crosstalk_cal_name {
+	CROSSTALK_CAL_NONE = 0,
+	CROSSTALK_CAL_LRC,
+	CROSSTALK_CAL_QSC,
+	CROSSTALK_CAL_XTC,
+	CROSSTALK_CAL_GGC,
+};
+
 struct rom_extend_cal_addr {
 	char *name;
 	void *data;
@@ -70,6 +83,18 @@ struct rom_converted_cal_addr {
 	int32_t rom_shading_cal_data_start_addr;
 	int32_t rom_shading_checksum_addr;
 	int32_t rom_shading_checksum_len;
+};
+
+struct rom_cal_addr {
+	int32_t addr;
+	int32_t size;
+	enum crosstalk_cal_name name;
+	const struct rom_cal_addr *next;
+};
+
+struct rom_sac_cal_addr {  //for soft landing in AF
+	int32_t rom_mode_addr; //Control, Mode
+	int32_t rom_time_addr; //Resonance
 };
 
 struct imgsensor_vendor_rom_addr {
@@ -105,6 +130,8 @@ struct imgsensor_vendor_rom_addr {
 	int32_t	rom_header_dual_cal_end_addr;
 	int32_t	rom_header_pdaf_cal_start_addr;
 	int32_t	rom_header_pdaf_cal_end_addr;
+	int32_t	rom_header_ois_cal_start_addr;
+	int32_t	rom_header_ois_cal_end_addr;
 
 	int32_t	rom_header_sub_oem_start_addr;
 	int32_t	rom_header_sub_oem_end_addr;
@@ -132,10 +159,6 @@ struct imgsensor_vendor_rom_addr {
 	int32_t	rom_oem_checksum_addr;
 	int32_t	rom_oem_checksum_len;
 
-/***** For SAC setting in AF driver *****/
-	int32_t rom_oem_af_sac_mode_addr; //ac_mode
-	int32_t rom_oem_af_sac_time_addr; //ac_time
-
 /***** AWB Referenced section *****/
 	int32_t	rom_awb_cal_data_start_addr;
 	int32_t	rom_awb_module_info_start_addr;
@@ -149,6 +172,7 @@ struct imgsensor_vendor_rom_addr {
 	int32_t	rom_shading_checksum_len;
 
 /***** SENSOR CAL(CrossTalk Cal for Remosaic) Referenced section *****/
+	int32_t	rom_sensor_cal_data_start_addr;
 	int32_t	rom_sensor_cal_module_info_start_addr;
 	int32_t	rom_sensor_cal_checksum_addr;
 	int32_t	rom_sensor_cal_checksum_len;
@@ -180,6 +204,10 @@ struct imgsensor_vendor_rom_addr {
 	int32_t	rom_sub_shading_checksum_addr;
 	int32_t	rom_sub_shading_checksum_len;
 
+/***** OIS CAL Referenced section *****/
+	int32_t rom_ois_checksum_addr;
+	int32_t rom_ois_checksum_len;
+
 /***** Dual Calibration Data2 *****/
 	int32_t	rom_dual_cal_data2_start_addr;
 	int32_t	rom_dual_cal_data2_size;
@@ -196,6 +224,15 @@ struct imgsensor_vendor_rom_addr {
 	int32_t	rom_dual_tilt_dll_modelID_size;
 	int32_t	rom_dual_shift_x_addr;
 	int32_t	rom_dual_shift_y_addr;
+
+/***** OIS Cal Data *****/
+	const struct rom_cal_addr *ois_cal_addr;
+
+/***** Crosstalk Cal Data *****/
+	const struct rom_cal_addr *crosstalk_cal_addr;
+
+/***** SAC Cal Data *****/
+	const struct rom_sac_cal_addr *sac_cal_addr;
 
 /***** Extend Cal Data *****/
 	const struct rom_extend_cal_addr *extend_cal_addr;

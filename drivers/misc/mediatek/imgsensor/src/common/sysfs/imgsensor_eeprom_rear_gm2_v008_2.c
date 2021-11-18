@@ -25,6 +25,26 @@ const struct rom_converted_cal_addr rear_gm2_converted_cal_addr = {
 	.rom_shading_checksum_len        = (REAR_CONVERTED_LSC_CHECKSUM_LEN),
 };
 
+const struct rom_cal_addr rear_gm2_ggc_addr = {
+	.name                            = CROSSTALK_CAL_GGC,
+	.addr                            = 0x2246,
+	.size                            = (0x22A1 - 0x2246 + 1),
+	.next                            = NULL,
+};
+
+const struct rom_cal_addr rear_gm2_xtc_addr = {
+	.name                            = CROSSTALK_CAL_XTC,
+	.addr                            = 0x0180,
+	.size                            = (0x2245 - 0x0180 + 1),
+	.next                            = &rear_gm2_ggc_addr,
+};
+
+
+const struct rom_sac_cal_addr rear_gm2_sac_addr = {
+	.rom_mode_addr                   = 0x0134, //Control, Mode
+	.rom_time_addr                   = 0x0135, //Resonance
+};
+
 const struct imgsensor_vendor_rom_addr rear_gm2_cal_addr = {
 	/* Set '-1' if not used */
 	.camera_module_es_version               = 'A',
@@ -73,9 +93,6 @@ const struct imgsensor_vendor_rom_addr rear_gm2_cal_addr = {
 	.rom_oem_module_info_start_addr         = -1,
 	.rom_oem_checksum_addr                  = 0x017C,
 	.rom_oem_checksum_len                   = REAR_OEM_CHECKSUM_LEN,
-
-	.rom_oem_af_sac_mode_addr               = 0x0134, //Control, Mode
-	.rom_oem_af_sac_time_addr               = 0x0135, //Resonance
 
 	.rom_module_cal_data_start_addr         = -1,
 	.rom_module_module_info_start_addr      = -1,
@@ -136,6 +153,8 @@ const struct imgsensor_vendor_rom_addr rear_gm2_cal_addr = {
 
 	.extend_cal_addr                        = NULL,
 
+	.crosstalk_cal_addr                     = &rear_gm2_xtc_addr,
+	.sac_cal_addr                           = &rear_gm2_sac_addr,
 	.converted_cal_addr                     = &rear_gm2_converted_cal_addr,
 	.rom_converted_max_cal_size             = REAR_CONVERTED_MAX_CAL_SIZE,
 

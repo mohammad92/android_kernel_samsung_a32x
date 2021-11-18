@@ -199,8 +199,42 @@ static void print_vio_mask_sta(void)
 	}
 }
 
+/* dumping spm register for mt6768 MMSYS_CONFIG vio issue */
+#ifdef CONFIG_DEVAPC_MT6768
+#define DUMP_SPM
+#endif
+
+#ifdef DUMP_SPM
+#define MON_VIO_IDX 155  /* MMSYS_CONFIG */
+#define SPM_OFFSET 0x30C
+
+static phys_addr_t spm_pa = 0x10006000;
+static void __iomem *spm_va;
+
+static noinline void spm_reg_ioremap(void)
+{
+	spm_va = ioremap(spm_pa, SZ_4K);
+	if (spm_va)
+		pr_info(PFX "%s spm_pa:%pa, spm_va:0x%px\n",
+					__func__, &spm_pa, spm_va);
+}
+#endif
+
 static void devapc_test_cb(void)
 {
+#ifdef DUMP_SPM
+	uint32_t value;
+
+	pr_info(PFX "%s spm_pa:%pa, spm_va:0x%px\n",
+				__func__, &spm_pa, spm_va);
+
+	if (spm_va) {
+		value = readl(spm_va + SPM_OFFSET);
+		pr_info(PFX "%s read spm_va+SPM_OFFSET:0x%px, value:0x%x\n",
+					__func__, spm_va + SPM_OFFSET, value);
+	}
+#endif
+
 	DEVAPC_MSG("%s success !\n", __func__);
 }
 
@@ -257,6 +291,10 @@ static void start_devapc(void)
 
 	print_vio_mask_sta();
 
+#ifdef DUMP_SPM
+	spm_reg_ioremap();
+#endif
+
 	register_devapc_vio_callback(&devapc_test_handle);
 }
 
@@ -269,9 +307,11 @@ static void devapc_violation_triggered(uint32_t vio_idx,
 	enum infra_subsys_id id = DEVAPC_SUBSYS_RESERVED;
 	const struct mtk_device_info *device_info;
 	struct mtk_devapc_dbg_status *dbg_stat;
+	int sramrom_vio_idx;
 
 	device_info = mtk_devapc_ctx->soc->device_info;
 	dbg_stat = mtk_devapc_ctx->soc->dbg_stat;
+	sramrom_vio_idx = mtk_devapc_ctx->soc->vio_info->sramrom_vio_idx;
 
 	if (unlikely(dbg_stat == NULL || device_info == NULL)) {
 		pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
@@ -313,6 +353,15 @@ static void devapc_violation_triggered(uint32_t vio_idx,
 
 	if (id != DEVAPC_SUBSYS_RESERVED) {
 		list_for_each_entry(viocb, &viocb_list, list) {
+
+#ifdef DUMP_SPM
+			if (viocb->id == DEVAPC_SUBSYS_TEST &&
+					viocb->debug_dump && vio_idx == MON_VIO_IDX) {
+				viocb->debug_dump();
+				continue;
+			}
+#endif
+
 			if (viocb->id == id && viocb->debug_dump)
 				viocb->debug_dump();
 
@@ -329,7 +378,7 @@ static void devapc_violation_triggered(uint32_t vio_idx,
 		DEVAPC_MSG("Device APC Violation Issue/%s", subsys_str);
 
 		/* Connsys will trigger EE instead of AP KE */
-		if (id != INFRA_SUBSYS_CONN)
+		if (id != INFRA_SUBSYS_CONN && vio_idx != sramrom_vio_idx)
 			BUG();
 	} else if (dbg_stat->enable_AEE) {
 

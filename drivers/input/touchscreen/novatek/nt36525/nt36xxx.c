@@ -2436,11 +2436,11 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		}
 #else
 		ts->fb_notif.notifier_call = nvt_fb_notifier_callback;
-		ret = smcdsd_fb_register_client(&ts->fb_notif);
-		if (ret) {
-			input_err(true, &client->dev, "register fb_notifier failed. ret=%d\n", ret);
-			goto err_register_notif_failed;
-		}
+//		ret = smcdsd_fb_register_client(&ts->fb_notif);
+//		if (ret) {
+//			input_err(true, &client->dev, "register fb_notifier failed. ret=%d\n", ret);
+//			goto err_register_notif_failed;
+//		}
 #endif
 	}
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -2488,8 +2488,8 @@ err_register_early_suspend_failed:
 		if (msm_drm_unregister_client(&ts->drm_notif))
 			input_err(true, &client->dev, "Error occurred while unregistering drm_notifier.\n");
 #else
-		if (smcdsd_fb_unregister_client(&ts->fb_notif))
-			input_err(true, &client->dev, "Error occurred while unregistering fb_notifier.\n");
+//		if (smcdsd_fb_unregister_client(&ts->fb_notif))
+//			input_err(true, &client->dev, "Error occurred while unregistering fb_notifier.\n");
 #endif
 	}
 err_register_notif_failed:
@@ -2602,8 +2602,8 @@ static int32_t nvt_ts_remove(struct spi_device *client)
 		if (msm_drm_unregister_client(&ts->drm_notif))
 			input_err(true, &client->dev, "Error occurred while unregistering drm_notifier.\n");
 #else
-		if (smcdsd_fb_unregister_client(&ts->fb_notif))
-			input_err(true, &client->dev, "Error occurred while unregistering fb_notifier.\n");
+//		if (smcdsd_fb_unregister_client(&ts->fb_notif))
+//			input_err(true, &client->dev, "Error occurred while unregistering fb_notifier.\n");
 #endif
 	}
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -2703,8 +2703,8 @@ void nvt_ts_shutdown(struct spi_device *client)
 		if (msm_drm_unregister_client(&ts->drm_notif))
 			input_err(true, &client->dev, "Error occurred while unregistering drm_notifier.\n");
 #else
-		if (smcdsd_fb_unregister_client(&ts->fb_notif))
-			input_err(true, &client->dev, "Error occurred while unregistering fb_notifier.\n");
+//		if (smcdsd_fb_unregister_client(&ts->fb_notif))
+//			input_err(true, &client->dev, "Error occurred while unregistering fb_notifier.\n");
 #endif
 	}
 #elif defined(CONFIG_HAS_EARLYSUSPEND)

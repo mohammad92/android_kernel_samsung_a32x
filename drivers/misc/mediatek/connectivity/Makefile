@@ -56,6 +56,17 @@ endif
         else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6779" "CONSYS_6873" "CONSYS_6853"))
             export MTK_COMBO_CHIP=CONNAC2X2
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
+        else ifneq (,$(filter $(CONFIG_MTK_COMBO_CHIP), "CONSYS_6739"))
+            #for gen2 options
+            export CONFIG_MTK_COMBO_WIFI_HIF=axi
+            export MTK_COMBO_CHIP=CONSYS_6739
+            export WLAN_CHIP_ID=6739
+            export MTK_ANDROID_WMT=y
+
+            # Do build-in for xxx.c checking
+            subdir-ccflags-y += -D MTK_WCN_REMOVE_KERNEL_MODULE
+            subdir-ccflags-y += -D MTK_WCN_BUILT_IN_DRIVER
+            PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
         else
             export MTK_COMBO_CHIP=CONNAC
             PATH_TO_WMT_DRV      = vendor/mediatek/kernel_modules/connectivity/common
@@ -89,7 +100,13 @@ endif
 		
         obj-y += wmt_drv/
         obj-y += wmt_chrdev_wifi/
-        obj-y += wlan_drv_gen4m/
+        ifeq ($(filter $(MTK_PLATFORM_ID), 6739), 6739)
+            $(info including gen2 driver)
+            obj-y += wlan_drv_gen2/
+        else
+            $(info including gen4m driver)
+            obj-y += wlan_drv_gen4m/
+        endif
         obj-y += bt/
         obj-y += gps/	
 

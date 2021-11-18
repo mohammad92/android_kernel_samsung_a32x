@@ -117,6 +117,10 @@
 #include <linux/defex.h>
 #endif
 
+#ifdef CONFIG_RUSTUH_KDP_CRED
+#include <linux/rustkdp.h>
+#endif
+
 /*
  * Minimum number of threads to boot the kernel
  */
@@ -2214,6 +2218,10 @@ static __latent_entropy struct task_struct *copy_process(
 #ifdef CONFIG_KDP_CRED
 	if (rkp_cred_enable)
 		rkp_assign_pgd(p);
+#endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (kdp_enable)
+		kdp_assign_pgd(p);
 #endif
 	return p;
 

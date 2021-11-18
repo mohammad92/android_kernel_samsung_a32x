@@ -10,6 +10,8 @@
 #ifndef __DD_H__
 #define __DD_H__
 
+#include <linux/ctype.h>
+
 struct mdnie_info;
 struct mdnie_table;
 #if defined(CONFIG_DEBUG_FS) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP) && defined(CONFIG_SMCDSD_LCD_DEBUG) && defined(CONFIG_SMCDSD_MDNIE)
@@ -48,16 +50,22 @@ static inline int dd_simple_write_to_buffer(char *ibuf, size_t sizeof_ibuf,
 	if (*ppos != 0)
 		return -EINVAL;
 
-	if (count > sizeof_ibuf)
+	if (count == 0)
+		return -EINVAL;
+
+	if (count >= sizeof_ibuf)
 		return -ENOMEM;
 
-	ret = simple_write_to_buffer(ibuf, sizeof_ibuf - 1, ppos, user_buf, count);
+	ret = simple_write_to_buffer(ibuf, sizeof_ibuf, ppos, user_buf, count);
 	if (ret < 0)
 		return ret;
 
 	ibuf[ret] = '\0';
 
-	strim(ibuf);
+	ibuf = strim(ibuf);
+
+	if (ibuf[0] && !isalnum(ibuf[0]))
+		return -EFAULT;
 
 	return 0;
 };

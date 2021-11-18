@@ -98,6 +98,7 @@
 #ifdef MTK_FB_MMDVFS_SUPPORT
 #include <linux/pm_qos.h>
 #endif
+#include "mtk_notify.h"
 
 #define MMSYS_CLK_LOW (0)
 #define MMSYS_CLK_HIGH (1)
@@ -181,6 +182,8 @@ wait_queue_head_t primary_display_present_fence_wq;
 atomic_t primary_display_pt_fence_update_event = ATOMIC_INIT(0);
 static unsigned int _need_lfr_check(void);
 struct Layer_draw_info *draw;
+struct mtk_uevent_dev uevent_data;
+EXPORT_SYMBOL(uevent_data);
 
 #ifdef CONFIG_MTK_DISPLAY_120HZ_SUPPORT
 static int od_need_start;
@@ -4162,6 +4165,9 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	disp_switch_data.state = DISP_ALIVE;
 	ret = switch_dev_register(&disp_switch_data);
 #endif
+
+	uevent_data.name = "lcm_disconnect";
+	uevent_dev_register(&uevent_data);
 
 	DISPCHECK("%s done\n", __func__);
 

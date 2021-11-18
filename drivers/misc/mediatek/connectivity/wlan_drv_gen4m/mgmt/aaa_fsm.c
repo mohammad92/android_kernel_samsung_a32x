@@ -356,6 +356,10 @@ void aaaFsmRunEventRxAuth(IN struct ADAPTER *prAdapter,
 						&u2StatusCode);
 
 #if CFG_SUPPORT_802_11W
+					if (prBssInfo->u4RsnSelectedAKMSuite ==
+						RSN_AKM_SUITE_SAE)
+						break;
+
 					/* AP PMF, if PMF connection,
 					 * ignore Rx auth
 					 */

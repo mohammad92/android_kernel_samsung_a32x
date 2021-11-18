@@ -485,6 +485,8 @@ static int spip3_release(struct inode *inode, struct file *filp)
 
 #endif
 	}
+	usleep_range(10000, 15000);
+
 	mutex_unlock(&device_list_lock);
 
 	P3_DBG_MSG("%s, users:%d, Major Minor No:%d %d\n", __func__,
@@ -977,6 +979,25 @@ static struct spi_driver spip3_driver = {
 	.remove = spip3_remove,
 };
 
+#if IS_MODULE(CONFIG_SAMSUNG_NFC)
+int spip3_dev_init(void)
+{
+	debug_level = P61_DEBUG_OFF;
+
+	P61_DBG_MSG("Entry : %s\n", __FUNCTION__);
+
+	return spi_register_driver(&p61_driver);
+}
+EXPORT_SYMBOL(spip3_dev_init);
+
+void spip3_dev_exit(void)
+{
+	P61_DBG_MSG("Entry : %s\n", __FUNCTION__);
+
+	spi_unregister_driver(&p61_driver);
+}
+EXPORT_SYMBOL(spip3_dev_exit);
+#else
 static int __init spip3_dev_init(void)
 {
 	P3_INFO_MSG("Entry : %s\n", __func__);
@@ -999,5 +1020,6 @@ module_exit(spip3_dev_exit);
 MODULE_AUTHOR("Sec");
 MODULE_DESCRIPTION("ese SPI driver");
 MODULE_LICENSE("GPL");
+#endif
 
 /** @} */

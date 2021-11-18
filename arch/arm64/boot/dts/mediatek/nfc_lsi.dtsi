@@ -113,7 +113,7 @@
 	status = "ok";
 	clock-frequency = <400000>;
 	mediatek,use-open-drain;
-	sec-nfc@27 {
+	sec_nfc: sec-nfc@27 {
 		compatible = "sec-nfc";
 		reg = <0x27>;
 		interrupt-parent = <&pio>;

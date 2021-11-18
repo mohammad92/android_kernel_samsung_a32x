@@ -39,25 +39,59 @@ static const struct of_device_id gof_device_id_2[] = {
 };
 #endif
 
+static int imgsensor_i2c_pinctrl(struct i2c_client *client,
+				 struct IMGSENSOR_I2C_INST *pinst)
+{
+	struct device *dev = &client->dev;
+	struct pinctrl *pinctrl = devm_pinctrl_get(dev);
+
+	pinst->refcnt = 0;
+	mutex_init(&pinst->lock);
+
+	if (IS_ERR(pinctrl)) {
+		pinctrl = NULL;
+		pinst->pi2c_pinctrl = pinctrl;
+		pinst->pi2c_state_on = NULL;
+		pinst->pi2c_state_off = NULL;
+		pr_info("%s : Cannot find camera i2c pinctrl.", __func__);
+		return 0;
+	}
+	pinst->pi2c_pinctrl = pinctrl;
+
+	pinst->pi2c_state_on = pinctrl_lookup_state(pinctrl, "i2c_on");
+	if (IS_ERR(pinst->pi2c_state_on)) {
+		pinst->pi2c_state_on = NULL;
+		pr_info("%s : camera i2c pinctrl err.", __func__);
+	}
+
+	pinst->pi2c_state_off = pinctrl_lookup_state(pinctrl, "i2c_off");
+	if (IS_ERR(pinst->pi2c_state_off)) {
+		pinst->pi2c_state_off = NULL;
+		pr_info("%s : camera i2c pinctrl err.", __func__);
+	}
+
+	return 0;
+}
+
 static int
 imgsensor_i2c_probe_0(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_0].pi2c_client = client;
-	return 0;
+	return imgsensor_i2c_pinctrl(client, &gi2c.inst[IMGSENSOR_I2C_DEV_0]);
 }
 
 static int
 imgsensor_i2c_probe_1(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_1].pi2c_client = client;
-	return 0;
+	return imgsensor_i2c_pinctrl(client, &gi2c.inst[IMGSENSOR_I2C_DEV_1]);
 }
 
 static int
 imgsensor_i2c_probe_2(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	gi2c.inst[IMGSENSOR_I2C_DEV_2].pi2c_client = client;
-	return 0;
+	return imgsensor_i2c_pinctrl(client, &gi2c.inst[IMGSENSOR_I2C_DEV_2]);
 }
 
 static int imgsensor_i2c_remove(struct i2c_client *client)

@@ -62,6 +62,10 @@ static DEFINE_SPINLOCK(cmdq_write_addr_lock);
 static DEFINE_SPINLOCK(cmdq_record_lock);
 static DEFINE_SPINLOCK(cmdq_first_err_lock);
 
+static struct dma_pool *mdp_rb_pool;
+static atomic_t mdp_rb_pool_cnt;
+static u32 mdp_rb_pool_limit = 256;
+
 /* callbacks */
 static BLOCKING_NOTIFIER_HEAD(cmdq_status_dump_notifier);
 
@@ -1707,14 +1711,65 @@ static void cmdq_core_save_hex_first_dump(const char *prefix_str,
 	}
 }
 
+static void *mdp_pool_alloc_impl(struct dma_pool *pool,
+	dma_addr_t *pa_out, atomic_t *cnt, u32 limit)
+{
+	void *va;
+	dma_addr_t pa;
+
+	if (atomic_inc_return(cnt) > limit) {
+		/* not use pool, decrease to value before call */
+		atomic_dec(cnt);
+		return NULL;
+	}
+
+	va = dma_pool_alloc(pool, GFP_KERNEL, &pa);
+	if (!va) {
+		atomic_dec(cnt);
+		cmdq_err(
+			"alloc buffer from pool fail va:0x%p pa:%pa pool:0x%p count:%d",
+			va, &pa, pool,
+			(s32)atomic_read(cnt));
+		return NULL;
+	}
+
+	*pa_out = pa;
+
+	return va;
+}
+
+static void mdp_pool_free_impl(struct dma_pool *pool, void *va,
+	dma_addr_t pa, atomic_t *cnt)
+{
+	if (unlikely(atomic_read(cnt) <= 0 || !pool)) {
+		cmdq_err("free pool cnt:%d pool:0x%p",
+			(s32)atomic_read(cnt), pool);
+		return;
+	}
+
+	dma_pool_free(pool, va, pa);
+	atomic_dec(cnt);
+}
+
 void *cmdq_core_alloc_hw_buffer_clt(struct device *dev, size_t size,
-	dma_addr_t *dma_handle, const gfp_t flag, enum CMDQ_CLT_ENUM clt)
+	dma_addr_t *dma_handle, const gfp_t flag, enum CMDQ_CLT_ENUM clt,
+	bool *pool)
 {
 	s32 alloc_cnt, alloc_max = 1 << 10;
-	void *ret = cmdq_core_alloc_hw_buffer(dev, size, dma_handle, flag);
+	void *va = NULL;
 
-	if (!ret)
-		return NULL;
+	va = mdp_pool_alloc_impl(mdp_rb_pool, dma_handle,
+		&mdp_rb_pool_cnt, mdp_rb_pool_limit);
+
+	if (!va) {
+		*pool = false;
+		va = cmdq_core_alloc_hw_buffer(dev, size, dma_handle, flag);
+		if (!va)
+			return NULL;
+	} else {
+		*pool = true;
+	}
+
 
 	alloc_cnt = atomic_inc_return(&cmdq_alloc_cnt[CMDQ_CLT_MAX]);
 	alloc_cnt = atomic_inc_return(&cmdq_alloc_cnt[clt]);
@@ -1726,7 +1781,7 @@ void *cmdq_core_alloc_hw_buffer_clt(struct device *dev, size_t size,
 			atomic_read(&cmdq_alloc_cnt[3]),
 			atomic_read(&cmdq_alloc_cnt[4]),
 			atomic_read(&cmdq_alloc_cnt[5]));
-	return ret;
+	return va;
 }
 EXPORT_SYMBOL(cmdq_core_alloc_hw_buffer_clt);
 
@@ -1779,11 +1834,16 @@ void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 EXPORT_SYMBOL(cmdq_core_alloc_hw_buffer);
 
 void cmdq_core_free_hw_buffer_clt(struct device *dev, size_t size,
-	void *cpu_addr, dma_addr_t dma_handle, enum CMDQ_CLT_ENUM clt)
+	void *cpu_addr, dma_addr_t dma_handle, enum CMDQ_CLT_ENUM clt,
+	bool pool)
 {
 	atomic_dec(&cmdq_alloc_cnt[CMDQ_CLT_MAX]);
 	atomic_dec(&cmdq_alloc_cnt[clt]);
-	cmdq_core_free_hw_buffer(dev, size, cpu_addr, dma_handle);
+	if (pool)
+		mdp_pool_free_impl(mdp_rb_pool, cpu_addr, dma_handle,
+			&mdp_rb_pool_cnt);
+	else
+		cmdq_core_free_hw_buffer(dev, size, cpu_addr, dma_handle);
 }
 EXPORT_SYMBOL(cmdq_core_free_hw_buffer_clt);
 
@@ -1956,7 +2016,7 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 		pWriteAddr->count = count;
 		pWriteAddr->va = cmdq_core_alloc_hw_buffer_clt(cmdq_dev_get(),
 			count * sizeof(u32), &(pWriteAddr->pa), GFP_KERNEL,
-			clt);
+			clt, &pWriteAddr->pool);
 		if (current)
 			pWriteAddr->user = current->pid;
 
@@ -1999,7 +2059,8 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 		if (pWriteAddr && pWriteAddr->va) {
 			cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
 				sizeof(u32) * pWriteAddr->count,
-				pWriteAddr->va, pWriteAddr->pa, clt);
+				pWriteAddr->va, pWriteAddr->pa, clt,
+				pWriteAddr->pool);
 			memset(pWriteAddr, 0, sizeof(struct WriteAddrStruct));
 		}
 
@@ -2185,7 +2246,7 @@ int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt)
 	if (pWriteAddr->va) {
 		cmdq_core_free_hw_buffer_clt(cmdq_dev_get(),
 			sizeof(u32) * pWriteAddr->count,
-			pWriteAddr->va, pWriteAddr->pa, clt);
+			pWriteAddr->va, pWriteAddr->pa, clt, pWriteAddr->pool);
 		memset(pWriteAddr, 0xda, sizeof(struct WriteAddrStruct));
 	}
 
@@ -4151,7 +4212,15 @@ void cmdq_core_release_handle_by_file_node(void *file_node)
 		 * immediately, but we cannot do so due to SMI hang risk.
 		 */
 		client = cmdq_clients[(u32)handle->thread];
-		cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
+		if (handle->secData.is_secure) {
+			if (handle->ctrl)
+				handle->ctrl->handle_wait_result(
+					handle, handle->thread);
+			else
+				CMDQ_ERR("without ctrl: handle:%p thread:%u\n",
+					handle, handle->thread);
+		} else
+			cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
 		cmdq_pkt_auto_release_task(handle);
 	}
 	mutex_unlock(&cmdq_handle_list_mutex);
@@ -4868,7 +4937,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 			handle->thread, client->chan->mbox,
 			client->chan->mbox->dev);
 
-		while (!handle->pkt->task_alloc) {
+	while (!handle->pkt->task_alloc) {
 		waitq = wait_event_timeout(
 			cmdq_wait_queue[(u32)handle->thread],
 			(handle->state != TASK_STATE_BUSY &&
@@ -5031,6 +5100,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **pmqos_handle_list = NULL;
 	struct ContextStruct *ctx;
 	u32 handle_count;
+	int32_t thread;
 
 	if (!handle->finalized) {
 		CMDQ_ERR("handle not finalized:0x%p scenario:%d\n",
@@ -5140,14 +5210,14 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 		CMDQ_LOG("cl:%p not same client:%p\n", handle->pkt->cl, client);
 		handle->pkt->cl = client;
 	}
+	thread = handle->thread;
 	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
 	CMDQ_SYSTRACE_END();
-
 	if (err < 0) {
-		CMDQ_ERR("pkt flush failed err:%d pkt:0x%p\n",
-			err, handle->pkt);
-		cmdq_pkt_release_handle(handle);
+		CMDQ_ERR("pkt flush failed err:%d handle:%p thread:%d\n",
+			err, handle, thread);
+
 		return err;
 	}
 
@@ -5460,6 +5530,9 @@ void cmdq_core_initialize(void)
 	/* Initialize secure path context */
 	cmdqSecInitialize();
 #endif
+	mdp_rb_pool = dma_pool_create("mdp_rb", cmdq_dev_get(),
+		CMDQ_BUF_ALLOC_SIZE, 0, 0);
+	atomic_set(&mdp_rb_pool_cnt, 0);
 }
 EXPORT_SYMBOL(cmdq_core_initialize);
 

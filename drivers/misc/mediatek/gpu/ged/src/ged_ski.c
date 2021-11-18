@@ -199,7 +199,9 @@ ssize_t gpu_model_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "Mali-G52 MC2\n"); //MT6768
 #elif defined(CONFIG_MACH_MT6853)
 	return scnprintf(buf, PAGE_SIZE, "Mali-G57 MC3\n"); //MT6853
-#elif
+#elif defined(CONFIG_MACH_MT6739)
+	return scnprintf(buf, PAGE_SIZE, "IMG PowerVR GE8100\n"); //MT6739
+#else
 	GED_LOGE("SKI: gpu model not set!\n");
 	return scnprintf(buf, PAGE_SIZE, "UNKNOWN\n");
 #endif

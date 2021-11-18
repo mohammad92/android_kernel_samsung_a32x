@@ -16,7 +16,7 @@
 #define REAR_CAMERA4
 
 #define REAR_SUB_CAMERA
-#define USE_SHARED_ROM_REAR3
+//#define USE_SHARED_ROM_REAR3
 
 extern const struct imgsensor_vendor_rom_info vendor_rom_info[SENSOR_POSITION_MAX];
 

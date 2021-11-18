@@ -51,6 +51,12 @@ int disp_lcm_esd_check(struct disp_lcm_handle *plcm);
 int disp_lcm_esd_recover(struct disp_lcm_handle *plcm);
 int disp_lcm_suspend(struct disp_lcm_handle *plcm);
 int disp_lcm_resume(struct disp_lcm_handle *plcm);
+#if defined(CONFIG_SMCDSD_PANEL)
+int disp_lcm_power_enable(struct disp_lcm_handle *plcm, unsigned int enable);
+int disp_lcm_disable(struct disp_lcm_handle *plcm);
+int disp_lcm_cmdq(struct disp_lcm_handle *plcm, unsigned int enable);
+int disp_lcm_path_lock(bool lock, struct disp_lcm_handle *plcm);
+#endif
 int disp_lcm_is_support_adjust_fps(struct disp_lcm_handle *plcm);
 int disp_lcm_adjust_fps(void *cmdq, struct disp_lcm_handle *plcm, int fps);
 int disp_lcm_set_backlight(struct disp_lcm_handle *plcm,
@@ -62,7 +68,6 @@ int disp_lcm_get_hbm_wait(struct disp_lcm_handle *plcm);
 int disp_lcm_set_hbm_wait(bool wait, struct disp_lcm_handle *plcm);
 unsigned int disp_lcm_get_hbm_wait_frame(bool en, struct disp_lcm_handle *plcm);
 int disp_lcm_framedone_notify(struct disp_lcm_handle *plcm);
-int disp_lcm_path_lock(bool lock, struct disp_lcm_handle *plcm);
 int disp_lcm_read_fb(struct disp_lcm_handle *plcm);
 int disp_lcm_ioctl(struct disp_lcm_handle *plcm, enum LCM_IOCTL ioctl,
 	unsigned int arg);
@@ -73,12 +78,6 @@ void *disp_lcm_switch_mode(struct disp_lcm_handle *plcm, int mode);
 int disp_lcm_set_lcm_cmd(struct disp_lcm_handle *plcm,
 	void *cmdq_handle, unsigned int *lcm_cmd,
 			 unsigned int *lcm_count, unsigned int *lcm_value);
-
-#if defined(CONFIG_SMCDSD_PANEL)
-int disp_lcm_suspend_power(struct disp_lcm_handle *plcm);
-int disp_lcm_reset_enable(struct disp_lcm_handle *plcm, unsigned int enable);
-int disp_lcm_resume_power(struct disp_lcm_handle *plcm);
-#endif
 
 int disp_lcm_is_partial_support(struct disp_lcm_handle *plcm);
 int disp_lcm_validate_roi(struct disp_lcm_handle *plcm,

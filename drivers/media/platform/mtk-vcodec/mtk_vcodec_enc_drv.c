@@ -391,7 +391,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	register_pm_notifier(&dev->pm_notifier);
 	dev->is_codec_suspending = 0;
 	dev->enc_cnt = 0;
-
+	//venc_dev = dev;
 	return 0;
 
 err_enc_reg:

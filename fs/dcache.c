@@ -39,7 +39,9 @@
 #include <linux/prefetch.h>
 #include <linux/ratelimit.h>
 #include <linux/list_lru.h>
-
+#ifdef CONFIG_RUSTUH_KDP_NS
+#include <linux/rustkdp.h>
+#endif
 #include "internal.h"
 #include "mount.h"
 #ifdef CONFIG_KDP_NS
@@ -3170,7 +3172,7 @@ restart:
 			if (mnt != parent) {
 				dentry = ACCESS_ONCE(mnt->mnt_mountpoint);
 				mnt = parent;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 				vfsmnt = mnt->mnt;
 #else
 				vfsmnt = &mnt->mnt;
@@ -3699,4 +3701,8 @@ void __init vfs_caches_init(void)
 #ifdef CONFIG_KDP_NS
 	ns_prot = 1;
 #endif
+#ifdef CONFIG_RUSTUH_KDP_NS
+	ns_protect = 1;
+#endif
+
 }

@@ -13,6 +13,8 @@
 
 #define STUI_TSP_TYPE_ILITEK	1
 #define STUI_TSP_TYPE_NOVATEK	2
+#define STUI_TSP_TYPE_MELFAS	3
+#define STUI_TSP_TYPE_STM		4
 
 #define STUI_MODE_OFF           0x00
 #define STUI_MODE_TUI_SESSION   0x01

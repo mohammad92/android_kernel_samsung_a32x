@@ -391,7 +391,7 @@ int smcdsd_panel_dsi_command_rx(void *drvdata,
 	memset(cmd_msg->rx_buf[0], 0, sizeof(rx_buf));
 	cmd_msg->rx_len[0] = len;
 
-	ret = read_lcm(cmd_msg, need_lock);
+	ret = read_lcm(cmd_msg);
 	if (ret != 0) {
 		dbg_info("%s error\n", __func__);
 		goto  done;
@@ -451,16 +451,8 @@ int smcdsd_panel_dsi_command_tx(void *drvdata,
 	dsi_msg.tx_buf[0] = data0;
 	dsi_msg.tx_cmd_num = 1;
 
-	if (plcd->cmdq) {
-		/* CMDQ */
-		ret = set_lcm(&dsi_msg, false, need_lock);
- 	} else {
-		/* CPU */
-		if (dsi_data_type_is_dcs(id))
-			ret = mipi_dsi_dcs_write_buffer(dsi, (void *)data0, data1);
-		else
-			ret = mipi_dsi_generic_write(dsi, (void *)data0, data1);
-	}
+	/* CMDQ */
+	ret = set_lcm(&dsi_msg);
 
 	if (ret < 0) {
 		plcd->error = ret;

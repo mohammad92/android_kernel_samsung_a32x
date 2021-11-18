@@ -22,6 +22,9 @@
 #ifdef CONFIG_KDP_CRED
 #include <linux/slub_def.h>
 #endif
+#ifdef CONFIG_RUSTUH_KDP
+#include <linux/rustkdp.h>
+#endif
 
 #if 0
 #define kdebug(FMT, ...)						\
@@ -47,7 +50,13 @@ int rkp_cred_enable __kdp_ro = 0;
 static struct kmem_cache *cred_jar_ro;
 struct kmem_cache *tsec_jar;
 struct kmem_cache *usecnt_jar;
-atomic_t init_cred_use_cnt = ATOMIC_INIT(4);
+
+struct kdp_usecnt init_cred_use_cnt = {
+	.kdp_use_cnt = ATOMIC_INIT(4),
+	.kdp_rcu_head.non_rcu = 0,
+	.kdp_rcu_head.bp_cred = (void *)0,
+	.kdp_rcu_head.reflected_cred = (void *)0,
+};
 
 unsigned int rkp_get_usecount(struct cred *cred)
 {
@@ -85,8 +94,11 @@ void put_cred(const struct cred *_cred)
 /*
  * The initial credentials for the initial task
  */
-// CONFIG_KDP_CRED
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 struct cred init_cred __kdp_ro = {
+#else
+struct cred init_cred = {
+#endif
 	.usage			= ATOMIC_INIT(4),
 #ifdef CONFIG_DEBUG_CREDENTIALS
 	.subscribers		= ATOMIC_INIT(2),
@@ -108,8 +120,8 @@ struct cred init_cred __kdp_ro = {
 	.user			= INIT_USER,
 	.user_ns		= &init_user_ns,
 	.group_info		= &init_groups,
-#ifdef CONFIG_KDP_CRED
-	.use_cnt		= &init_cred_use_cnt,
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
+	.use_cnt		= (atomic_t *)&init_cred_use_cnt,
 	.bp_task		= &init_task,
 	.bp_pgd			= (void *) 0,
 	.type			= 0,
@@ -127,12 +139,14 @@ void rkp_get_init_cred(void)
 EXPORT_SYMBOL(rkp_get_init_cred);
 #endif
 
+#ifndef CONFIG_RUSTUH_KDP_CRED
 static inline void set_cred_subscribers(struct cred *cred, int n)
 {
 #ifdef CONFIG_DEBUG_CREDENTIALS
 	atomic_set(&cred->subscribers, n);
 #endif
 }
+#endif
 
 static inline int read_cred_subscribers(const struct cred *cred)
 {
@@ -229,14 +243,18 @@ void __put_cred(struct cred *cred)
 		BUG_ON((rocred_uc_read(cred)) != 0);
 	else
 #endif
-
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (is_kdp_protect_addr((unsigned long)cred))
+		BUG_ON(ROCRED_UC_READ(cred) != 0);
+	else
+#endif
 	BUG_ON(atomic_read(&cred->usage) != 0);
 #ifdef CONFIG_DEBUG_CREDENTIALS
 	BUG_ON(read_cred_subscribers(cred) != 0);
 	cred->magic = CRED_MAGIC_DEAD;
 	cred->put_addr = __builtin_return_address(0);
 #endif
-#ifdef CONFIG_KDP_CRED
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 	if (cred == current->cred)
 		printk("[KDP] cred->security: %p\n", cred->security);
 #endif
@@ -252,11 +270,20 @@ void __put_cred(struct cred *cred)
 	}
 	else {
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (is_kdp_protect_addr((unsigned long)cred)) {
+		if (GET_ROCRED_RCU(cred)->non_rcu)
+			put_rocred_rcu(&(GET_ROCRED_RCU(cred)->rcu));
+		else
+			call_rcu(&(GET_ROCRED_RCU(cred)->rcu), put_rocred_rcu);
+	}
+	else {
+#endif
 	if (cred->non_rcu)
 		put_cred_rcu(&cred->rcu);
 	else
 		call_rcu(&cred->rcu, put_cred_rcu);
-#ifdef CONFIG_KDP_CRED
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 	}
 #endif
 }
@@ -299,7 +326,7 @@ void exit_creds(struct task_struct *tsk)
 const struct cred *get_task_cred(struct task_struct *task)
 {
 	const struct cred *cred;
-#ifdef CONFIG_KDP_CRED
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 	int inc_test;
 #endif
 	rcu_read_lock();
@@ -311,6 +338,15 @@ const struct cred *get_task_cred(struct task_struct *task)
 		if (rkp_ro_page((unsigned long)cred)) {
 			inc_test = rocred_uc_inc_not_zero(cred);
 		}
+		else
+			inc_test = atomic_inc_not_zero(&((struct cred *)cred)->usage);
+	} while (!inc_test);
+#elif defined(CONFIG_RUSTUH_KDP_CRED)
+	do {
+		cred = __task_cred((task));
+		BUG_ON(!cred);
+		if (is_kdp_protect_addr((unsigned long)cred))
+			inc_test = ROCRED_UC_INC_NOT_ZERO(cred);
 		else
 			inc_test = atomic_inc_not_zero(&((struct cred *)cred)->usage);
 	} while (!inc_test);
@@ -398,6 +434,7 @@ static struct cred *prepare_ro_creds(struct cred *old, int kdp_cmd, u64 p)
 	}
 
 	get_rocred_rcu(new_ro)->non_rcu = old->non_rcu;
+	get_rocred_rcu(new_ro)->reflected_cred = 0;
 	rocred_uc_set(new_ro, 2);
 
 	set_cred_subscribers(new_ro, 0);
@@ -559,6 +596,9 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 #ifdef CONFIG_KDP_CRED
 	if (!rkp_cred_enable) {
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (!kdp_enable) {
+#endif
 	if (
 #ifdef CONFIG_KEYS
 		!p->cred->thread_keyring &&
@@ -574,7 +614,7 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 		atomic_inc(&p->cred->user->processes);
 		return 0;
 	}
-#ifdef CONFIG_KDP_CRED
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 	}
 #endif
 
@@ -608,20 +648,22 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 #endif
 
 	atomic_inc(&new->user->processes);
-
 #ifdef CONFIG_KDP_CRED
 	if (rkp_cred_enable) {
 		p->cred = p->real_cred = prepare_ro_creds(new, RKP_CMD_COPY_CREDS, (u64)p);
 		put_cred(new);
 	} else {
-		p->cred = p->real_cred = get_cred(new);
-		alter_cred_subscribers(new, 2);
-		validate_creds(new);
-	}
-#else
+#elif defined(CONFIG_RUSTUH_KDP_CRED)
+	if (kdp_enable) {
+		p->cred = p->real_cred = prepare_ro_creds(new, CMD_COPY_CREDS, (u64)p);
+		put_cred(new);
+	} else {
+#endif
 	p->cred = p->real_cred = get_cred(new);
 	alter_cred_subscribers(new, 2);
 	validate_creds(new);
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
+	}
 #endif
 
 	return 0;
@@ -690,6 +732,11 @@ int commit_creds(struct cred *new)
 		BUG_ON((rocred_uc_read(new)) < 1);
 	else
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (is_kdp_protect_addr((unsigned long)new))
+		BUG_ON(ROCRED_UC_READ(new) < 1);
+	else
+#endif
 	BUG_ON(atomic_read(&new->usage) < 1);
 
 	get_cred(new); /* we will require a ref for the subj creds too */
@@ -728,12 +775,17 @@ int commit_creds(struct cred *new)
 	alter_cred_subscribers(new, 2);
 	if (new->user != old->user)
 		atomic_inc(&new->user->processes);
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 #ifdef CONFIG_KDP_CRED
 	if (rkp_cred_enable) {
 		struct cred *new_ro;
 
 		new_ro = prepare_ro_creds(new, RKP_CMD_CMMIT_CREDS, 0);
-
+#elif CONFIG_RUSTUH_KDP_CRED
+	if (kdp_enable) {
+		struct cred *new_ro;
+		new_ro = prepare_ro_creds(new, CMD_COMMIT_CREDS, 0);
+#endif
 		rcu_assign_pointer(task->real_cred, new_ro);
 		rcu_assign_pointer(task->cred, new_ro);
 	} else {
@@ -760,8 +812,12 @@ int commit_creds(struct cred *new)
 	    !gid_eq(new->sgid,  old->sgid) ||
 	    !gid_eq(new->fsgid, old->fsgid))
 		proc_id_connector(task, PROC_EVENT_GID);
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
 #ifdef CONFIG_KDP_CRED
 	if (rkp_cred_enable) {
+#elif defined(CONFIG_RUSTUH_KDP_CRED)
+	if (kdp_enable) {
+#endif
 		put_cred(new);
 		put_cred(new);
 	}
@@ -794,6 +850,11 @@ void abort_creds(struct cred *new)
 		BUG_ON((rocred_uc_read(new)) < 1);
 	else
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	if (is_kdp_protect_addr((unsigned long)new))
+		BUG_ON(ROCRED_UC_READ(new) < 1);
+	else
+#endif
 	BUG_ON(atomic_read(&new->usage) < 1);
 	put_cred(new);
 }
@@ -806,16 +867,9 @@ EXPORT_SYMBOL(abort_creds);
  * Install a set of temporary override subjective credentials on the current
  * process, returning the old set for later reversion.
  */
-#ifdef CONFIG_KDP_CRED
-const struct cred *rkp_override_creds(struct cred **cnew)
-#else
 const struct cred *override_creds(const struct cred *new)
-#endif
 {
 	const struct cred *old = current->cred;
-#ifdef CONFIG_KDP_CRED
-	struct cred *new = *cnew;
-#endif
 
 	kdebug("override_creds(%p{%d,%d})", new,
 	       atomic_read(&new->usage),
@@ -823,21 +877,7 @@ const struct cred *override_creds(const struct cred *new)
 
 	validate_creds(old);
 	validate_creds(new);
-#ifdef CONFIG_KDP_CRED
-	if (rkp_cred_enable) {
-		volatile unsigned int rkp_use_count = rkp_get_usecount(new);
-		struct cred *new_ro;
 
-		new_ro = prepare_ro_creds(new, RKP_CMD_OVRD_CREDS, rkp_use_count);
-		*cnew = new_ro;
-		rcu_assign_pointer(current->cred, new_ro);
-		put_cred(new);
-	} else {
-		get_new_cred((struct cred *)new);
-		alter_cred_subscribers(new, 1);
-		rcu_assign_pointer(current->cred, new);
-	}
-#else
 	/*
 	 * NOTE! This uses 'get_new_cred()' rather than 'get_cred()'.
 	 *
@@ -851,8 +891,28 @@ const struct cred *override_creds(const struct cred *new)
 	 */
 	get_new_cred((struct cred *)new);
 	alter_cred_subscribers(new, 1);
-	rcu_assign_pointer(current->cred, new);
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
+#ifdef CONFIG_KDP_CRED
+	if (rkp_cred_enable) {
+		volatile unsigned int kdp_use_count = rkp_get_usecount((struct cred *)new);
+		struct cred *new_ro;
+
+		new_ro = prepare_ro_creds((struct cred *)new, RKP_CMD_OVRD_CREDS, kdp_use_count);
+		get_rocred_rcu(new_ro)->reflected_cred = (void *)new;
+		rcu_assign_pointer(current->cred, new_ro);
+	} else
+#elif defined(CONFIG_RUSTUH_KDP_CRED)
+	if (kdp_enable) {
+		volatile unsigned int rkp_use_count = kdp_get_usecount((struct cred *)new);
+		struct cred *new_ro;
+
+		new_ro = prepare_ro_creds((struct cred *)new, CMD_OVRD_CREDS, rkp_use_count);
+		GET_ROCRED_RCU(new_ro)->reflected_cred = (void *)new;
+		rcu_assign_pointer(current->cred, new_ro);
+	} else
 #endif
+#endif
+	rcu_assign_pointer(current->cred, new);
 	alter_cred_subscribers(old, -1);
 
 	kdebug("override_creds() = %p{%d,%d}", old,
@@ -860,11 +920,8 @@ const struct cred *override_creds(const struct cred *new)
 	       read_cred_subscribers(old));
 	return old;
 }
-#ifdef CONFIG_KDP_CRED
-EXPORT_SYMBOL(rkp_override_creds);
-#else
 EXPORT_SYMBOL(override_creds);
-#endif
+
 /**
  * revert_creds - Revert a temporary subjective credentials override
  * @old: The credentials to be restored
@@ -885,6 +942,25 @@ void revert_creds(const struct cred *old)
 	alter_cred_subscribers(old, 1);
 	rcu_assign_pointer(current->cred, old);
 	alter_cred_subscribers(override, -1);
+#if defined(CONFIG_KDP_CRED) || defined(CONFIG_RUSTUH_KDP_CRED)
+#ifdef CONFIG_KDP_CRED
+	if (rkp_cred_enable) {
+		if (rkp_ro_page((unsigned long)override)) {
+			if(get_rocred_rcu(override)->reflected_cred)
+				put_cred((struct cred *)get_rocred_rcu(override)->reflected_cred);
+			put_cred(override);
+		}
+	}
+#elif defined(CONFIG_RUSTUH_KDP_CRED)
+	if (kdp_enable) {
+		if (is_kdp_protect_addr((unsigned long)override)){
+			if(GET_ROCRED_RCU(override)->reflected_cred)
+				put_cred((struct cred *)GET_ROCRED_RCU(override)->reflected_cred);
+			put_cred(override);
+		}
+	}
+#endif
+#endif
 	put_cred(override);
 }
 EXPORT_SYMBOL(revert_creds);
@@ -934,6 +1010,9 @@ void __init cred_init(void)
 		}
 		uh_call(UH_APP_RKP, RKP_KDP_X42, (u64)cred_jar_ro->size, (u64)tsec_jar->size, 0, 0);
 	}
+#endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+	kdp_cred_init();
 #endif
 }
 

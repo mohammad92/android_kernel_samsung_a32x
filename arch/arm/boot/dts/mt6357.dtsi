@@ -248,7 +248,7 @@
 			regulator-enable-ramp-delay = <220>;
 		};
 	};	/* End of buck_regulators */
-	ldo_regulators {
+	mt6357regulator: mt6357regulator {
 		mt_pmic_vfe28_ldo_reg: ldo_vfe28 {
 			compatible = "regulator-fixed";
 			regulator-name = "vfe28";
@@ -423,6 +423,6 @@
 			regulator-max-microvolt = <3100000>;
 			regulator-enable-ramp-delay = <264>;
 		};
-	};	/* End of ldo_regulators */
+	};	/* End of mt6357regulator */
 };/* End of main_pmic */
 

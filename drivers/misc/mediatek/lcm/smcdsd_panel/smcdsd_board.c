@@ -113,6 +113,7 @@ run_list(dev, "subnode_4"); pre-configured lcd_pin pinctrl at subnode_1 will be 
 #endif
 #define dbg_info(fmt, ...)		pr_info(pr_fmt("%s: %3d: %s: " fmt), BOARD_DTS_NAME, __LINE__, __func__, ##__VA_ARGS__)
 #define dbg_warn(fmt, ...)		pr_warn(pr_fmt("%s: %3d: %s: " fmt), BOARD_DTS_NAME, __LINE__, __func__, ##__VA_ARGS__)
+#define dbg_once(fmt, ...)		pr_info_once(pr_fmt("%s: %3d: %s: " fmt), BOARD_DTS_NAME, __LINE__, __func__, ##__VA_ARGS__)
 
 #define STREQ(a, b)			(a && b && (*(a) == *(b)) && (strcmp((a), (b)) == 0))
 #define STRNEQ(a, b)			(a && b && (strncmp((a), (b), (strlen(a))) == 0))
@@ -601,7 +602,7 @@ struct device_node *of_find_recommend_lcd_info(struct device *dev)
 
 	np = of_find_lcd_info(dev);
 	if (of_node_is_recommend(np)) {
-		dbg_info("%s is recommended\n", of_node_full_name(np));
+		dbg_once("%s is recommended\n", of_node_full_name(np));
 		return np;
 	}
 
@@ -610,7 +611,7 @@ struct device_node *of_find_recommend_lcd_info(struct device *dev)
 		for (i = 0; i < count; i++) {
 			np = of_parse_phandle(parent, PANEL_DTS_NAME, i);
 			if (of_node_is_recommend(np)) {
-				dbg_info("%s is recommended\n", of_node_full_name(np));
+				dbg_once("%s is recommended\n", of_node_full_name(np));
 				return np;
 			}
 		}
@@ -618,7 +619,7 @@ struct device_node *of_find_recommend_lcd_info(struct device *dev)
 
 	np = of_find_lcd_info(NULL);	/* if there is no recommend, return 1st lcd_info */
 
-	dbg_info("%s is found\n", of_node_full_name(np));
+	dbg_once("%s is found\n", of_node_full_name(np));
 
 	return np;
 }
@@ -1015,126 +1016,87 @@ void run_timer_to(struct device *dev, const char *name, const char *timer_name)
 	run_action(dev, name, "timer,delay", timer_name);
 }
 
-int of_gpio_get_active(const char *gpioname)
-{
-	int ret = 0, gpio = 0, gpio_level, active_level;
-	struct device_node *np = NULL;
-	enum of_gpio_flags flags = {0, };
-
-	np = of_find_node_with_property(NULL, gpioname);
-	if (!np) {
-		dbg_info("of_find_node_with_property fail for %s\n", gpioname);
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	dbg_none("%s property find in node %s\n", gpioname, np->name);
-
-	gpio = of_get_named_gpio_flags(np, gpioname, 0, &flags);
-	if (!gpio_is_valid(gpio)) {
-		dbg_warn("of_get_named_gpio fail %d %s\n", gpio, gpioname);
-		ret = -EINVAL;
-		goto exit;
-	}
-	of_node_put(np);
-
-	active_level = !(flags & OF_GPIO_ACTIVE_LOW);
-	gpio_level = gpio_get_value(gpio);
-	ret = (gpio_level == active_level) ? 1 : 0;
-exit:
-	return ret;
-}
-
-int of_gpio_get_value(const char *gpioname)
-{
-	int ret = 0, gpio = 0, gpio_level, active_level;
-	struct device_node *np = NULL;
-	enum of_gpio_flags flags = {0, };
-
-	np = of_find_node_with_property(NULL, gpioname);
-	if (!np) {
-		dbg_info("of_find_node_with_property fail for %s\n", gpioname);
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	dbg_none("%s property find in node %s\n", gpioname, np->name);
-
-	gpio = of_get_named_gpio_flags(np, gpioname, 0, &flags);
-	if (!gpio_is_valid(gpio)) {
-		dbg_warn("of_get_named_gpio fail %d %s\n", gpio, gpioname);
-		of_node_put(np);
-		ret = -EINVAL;
-		goto exit;
-	}
-	of_node_put(np);
-
-	active_level = !(flags & OF_GPIO_ACTIVE_LOW);
-	gpio_level = gpio_get_value(gpio);
-	ret = gpio_level;
-
-exit:
-	return ret;
-}
-
-int of_gpio_set_value(const char *gpioname, int value)
-{
-	int ret = 0, gpio = 0;
-	struct device_node *np = NULL;
-	enum of_gpio_flags flags = {0, };
-
-	np = of_find_node_with_property(NULL, gpioname);
-	if (!np) {
-		dbg_info("of_find_node_with_property fail for %s\n", gpioname);
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	dbg_none("%s property find in node %s\n", gpioname, np->name);
-
-	gpio = of_get_named_gpio_flags(np, gpioname, 0, &flags);
-	if (!gpio_is_valid(gpio)) {
-		dbg_warn("of_get_named_gpio fail %d %s\n", gpio, gpioname);
-		of_node_put(np);
-		ret = -EINVAL;
-		goto exit;
-	}
-	of_node_put(np);
-
-	ret = gpio_request_one(gpio, value ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW, NULL);
-	if (ret < 0)
-		dbg_warn("gpio_request_one fail %d, %d, %s\n", ret, gpio, gpioname);
-	gpio_free(gpio);
-exit:
-	return ret;
-}
-
 int of_get_gpio_with_name(const char *gpioname)
 {
 	int ret = 0, gpio = 0;
 	struct device_node *np = NULL;
 	enum of_gpio_flags flags = {0, };
 
-	np = of_find_node_with_property(NULL, gpioname);
+	np = of_find_smcdsd_board(NULL);
 	if (!np) {
-		dbg_info("of_find_node_with_property fail for %s\n", gpioname);
-		ret = -EINVAL;
-		goto exit;
+		dbg_info("of_find_smcdsd_board fail for %s\n", gpioname);
+		return -EINVAL;
 	}
-
-	dbg_none("%s property find in node %s\n", gpioname, np->name);
 
 	gpio = of_get_named_gpio_flags(np, gpioname, 0, &flags);
 	if (!gpio_is_valid(gpio)) {
-		dbg_warn("of_get_named_gpio fail %d %s\n", gpio, gpioname);
-		ret = -EINVAL;
-		goto exit;
+		dbg_warn("of_get_named_gpio_flags fail %d %s\n", gpio, gpioname);
+		return -EINVAL;
 	}
-	of_node_put(np);
 
 	ret = gpio;
-exit:
+
 	return ret;
+}
+
+int of_gpio_get_value(const char *gpioname)
+{
+	int ret = 0, gpio = 0, gpio_level;
+
+	gpio = of_get_gpio_with_name(gpioname);
+	if (!gpio_is_valid(gpio))
+		return -EINVAL;
+
+	gpio_level = gpio_get_value(gpio);
+	ret = gpio_level;
+
+	return ret;
+}
+
+int of_gpio_set_value(const char *gpioname, int value)
+{
+	int ret = 0, gpio = 0;
+
+	gpio = of_get_gpio_with_name(gpioname);
+	if (!gpio_is_valid(gpio))
+		return -EINVAL;
+
+	ret = gpio_request_one(gpio, value ? GPIOF_OUT_INIT_HIGH : GPIOF_OUT_INIT_LOW, NULL);
+	if (ret < 0)
+		dbg_warn("gpio_request_one fail %d, %d, %s\n", ret, gpio, gpioname);
+	gpio_free(gpio);
+
+	return ret;
+}
+
+int of_gpio_get_active(const char *gpioname)
+{
+	int ret = 0, gpio = 0, gpio_level, active_level;
+	struct device_node *np = NULL;
+	enum of_gpio_flags flags = {0, };
+
+	np = of_find_smcdsd_board(NULL);
+	if (!np) {
+		dbg_info("of_find_smcdsd_board fail for %s\n", gpioname);
+		return -EINVAL;
+	}
+
+	gpio = of_get_named_gpio_flags(np, gpioname, 0, &flags);
+	if (!gpio_is_valid(gpio)) {
+		dbg_warn("of_get_named_gpio_flags fail %d %s\n", gpio, gpioname);
+		return -EINVAL;
+	}
+
+	active_level = !(flags & OF_GPIO_ACTIVE_LOW);
+	gpio_level = gpio_get_value(gpio);
+	ret = (gpio_level == active_level) ? 1 : 0;
+
+	return ret;
+}
+
+int of_gpio_abnormal(const char *gpioname)
+{
+	return of_gpio_get_active(gpioname);
 }
 
 struct regulator_bulk_data *get_regulator_with_name(const char *name)

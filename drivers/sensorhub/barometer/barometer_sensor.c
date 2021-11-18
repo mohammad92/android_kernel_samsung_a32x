@@ -155,7 +155,7 @@ void select_barometer_ops(struct ssp_data *data, char *name)
 
 	if (count > 1) {
 		for (i = 0; i < count ; i++) {
-			int size = barometer_ops_ary[i]->get_barometer_name(temp_buffer);
+			barometer_ops_ary[i]->get_barometer_name(temp_buffer);
 			ssp_infof("%d barometer name : %s", i, temp_buffer);
 
 			if (strcmp(temp_buffer, name) == 0)

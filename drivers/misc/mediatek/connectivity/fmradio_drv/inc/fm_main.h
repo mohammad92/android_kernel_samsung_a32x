@@ -27,7 +27,6 @@
 #define FM_NAME             "fm"
 #define FM_DEVICE_NAME      "/dev/fm"
 
-#define FM_VOL_MAX           0x2B	/* 43 volume(0-15) */
 #define FM_TIMER_TIMEOUT_DEFAULT 1000
 #define FM_TIMER_TIMEOUT_MIN 1000
 #define FM_TIMER_TIMEOUT_MAX 1000000

@@ -744,7 +744,7 @@ fg_temp_goto:
 
 #if defined(CONFIG_DIRECT_CHARGING)
 int sec_bat_get_direct_chg_temp_adc(struct sec_battery_info *battery,
-			int adc_data, int count)
+			int adc_data, int count, int check_type)
 {
 	int temp = 0;
 	int temp_adc;
@@ -753,6 +753,9 @@ int sec_bat_get_direct_chg_temp_adc(struct sec_battery_info *battery,
 	int mid = 0;
 	const sec_bat_adc_table_data_t *temp_adc_table = {0 , };
 	unsigned int temp_adc_table_size = 0;
+
+	if (check_type == SEC_BATTERY_TEMP_CHECK_FAKE)
+		return 300;
 
 	temp_adc = adc_data;
 	if (temp_adc < 0)

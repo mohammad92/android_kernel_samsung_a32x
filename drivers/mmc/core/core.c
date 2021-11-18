@@ -886,7 +886,7 @@ int mmc_blk_cmdq_switch(struct mmc_card *card, int enable)
 
 	card->ext_csd.cmdq_en = enable;
 
-	pr_notice("%s: device cq %s\n",
+	pr_debug("%s: device cq %s\n",
 		mmc_hostname(host),
 		card->ext_csd.cmdq_en ? "on":"off");
 
@@ -3162,7 +3162,7 @@ static int mmc_cmdq_send_erase_cmd(struct mmc_cmdq_req *cmdq_req,
 	if (err) {
 		pr_notice("%s: group start error %d, status %#x\n",
 				__func__, err, cmd->resp[0]);
-		return -EIO;
+		return (err == -EBADSLT) ? err : -EIO;
 	}
 	return 0;
 }
@@ -3213,7 +3213,8 @@ static int mmc_cmdq_do_erase(struct mmc_cmdq_req *cmdq_req,
 		if (err || (cmd->resp[0] & 0xFDF92000)) {
 			pr_notice("error %d requesting status %#x\n",
 				err, cmd->resp[0]);
-			err = -EIO;
+			if (err != -EBADSLT)
+				err = -EIO;
 			goto out;
 		}
 		/* Timeout if the device never becomes ready for data and
@@ -3996,7 +3997,7 @@ void mmc_rescan(struct work_struct *work)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	/* check if hw interrupt is triggered */
-	if (!host->trigger_card_event && !host->card) {
+	if (mmc_card_is_removable(host) && !host->trigger_card_event && !host->card) {
 		pr_err("%s: no detect irq, skipping mmc_rescan\n", mmc_hostname(host));
 #ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 		if (host->detect_wake_lock->active)

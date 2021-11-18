@@ -603,6 +603,11 @@ struct usb_function_instance {
 	int (*set_inst_name)(struct usb_function_instance *inst,
 			      const char *name);
 	void (*free_func_inst)(struct usb_function_instance *inst);
+
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+	int (*set_inst_eth_addr)(struct usb_function_instance *inst,
+			   u8 * ethaddr);
+#endif
 };
 
 void usb_function_unregister(struct usb_function_driver *f);

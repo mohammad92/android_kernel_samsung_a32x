@@ -175,6 +175,9 @@ void get_ss_sensor_name(struct ssp_data *data, int type, char *buf, int buf_size
 	case SS_SENSOR_TYPE_CHANGE_LOCATION_TRIGGER:
 		strncpy(buf, "change location trigger", buf_size);
 		break;
+	case SS_SENSOR_TYPE_FREE_FALL_DETECTION:
+		strncpy(buf, "free fall detection", buf_size);
+		break;
 	}
 }
 

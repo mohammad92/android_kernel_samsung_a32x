@@ -50,6 +50,8 @@
 #include <linux/uh.h>
 #ifdef CONFIG_UH_RKP
 #include <linux/rkp.h>
+#elif defined(CONFIG_RUSTUH_RKP)
+#include <linux/rustrkp.h>
 #endif
 #endif
 
@@ -247,7 +249,7 @@ static void alloc_init_cont_pmd(pud_t *pud, unsigned long addr,
 	if (pud_none(*pud)) {
 		phys_addr_t pmd_phys;
 		BUG_ON(!pgtable_alloc);
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 		pmd_phys = rkp_ro_alloc_phys();
 		if (!pmd_phys)
 #endif
@@ -281,7 +283,7 @@ static inline bool use_1G_block(unsigned long addr, unsigned long next,
 	if (((addr | next | phys) & ~PUD_MASK) != 0)
 		return false;
 
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	return false;
 #else
 	return true;
@@ -551,7 +553,7 @@ static void __init map_kernel_segment(pgd_t *pgd, void *va_start, void *va_end,
 	vm_area_add_early(vma);
 }
 
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 static void __init map_kernel_text_segment(pgd_t *pgd, void *va_start, void *va_end,
 				      pgprot_t prot, struct vm_struct *vma,
 				      int flags, unsigned long vm_flags)
@@ -634,7 +636,7 @@ static void __init map_kernel(pgd_t *pgd)
 	 * Only rodata will be remapped with different permissions later on,
 	 * all other segments are allowed to use contiguous mappings.
 	 */
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	map_kernel_text_segment(pgd, _text, _etext, text_prot, &vmlinux_text, 0,
 			   VM_NO_GUARD);
 #else
@@ -710,7 +712,7 @@ void __init paging_init(void)
 	 * We only reuse the PGD from the swapper_pg_dir, not the pud + pmd
 	 * allocated with it.
 	 */
-#ifndef CONFIG_UH_RKP
+#if !defined(CONFIG_UH_RKP) && !defined(CONFIG_RUSTUH_RKP)
 	memblock_free(__pa_symbol(swapper_pg_dir) + PAGE_SIZE,
 		      SWAPPER_DIR_SIZE - PAGE_SIZE);
 #endif

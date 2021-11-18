@@ -108,6 +108,16 @@ static void fm_eint_handler(void);
 static void fm_eint_work_func(struct work_struct *work);
 static signed int pwrdown_flow(struct fm *fm);
 
+/* actual function to set fm volume */
+static void fm_volset(struct fm *fm, unsigned int vol)
+{
+	unsigned char tmp_vol;
+
+	tmp_vol = (vol > FM_VOL_MAX) ? FM_VOL_MAX : vol;
+	fm_low_ops.bi.volset(tmp_vol);
+	fm->vol = (signed int) tmp_vol;
+}
+
 static unsigned short fm_cur_freq_get(void)
 {
 	return g_fm_struct ? g_fm_struct->cur_freq : 0;
@@ -465,11 +475,11 @@ signed int fm_powerup(struct fm *fm, struct fm_tune_parm *parm)
 	if (fm_low_ops.bi.low_pwr_wa)
 		fm_low_ops.bi.low_pwr_wa(1);
 
+	fm_volset(fm, fm_config.other_cfg.vol);
+
 	fm_low_ops.bi.volget(&tmp_vol);
 	WCN_DBG(FM_INF | MAIN, "vol=%d!!!\n", tmp_vol);
 
-	/* fm_low_ops.bi.volset(0); */
-	fm->vol = 15;
 	if (fm_low_ops.ri.rds_bci_get) {
 		fm_timer_sys->init(fm_timer_sys, fm_timer_func, (unsigned long)g_fm_struct,
 				   fm_low_ops.ri.rds_bci_get(), 0);
@@ -956,10 +966,9 @@ signed int fm_ana_switch(struct fm *fm, signed int antenna)
 	return ret;
 }
 
-/* volume?[0~15] */
+/* volume?[0~31] */
 signed int fm_setvol(struct fm *fm, unsigned int vol)
 {
-	unsigned char tmp_vol;
 
 	if (fm_pwr_state_get(fm) != FM_PWR_RX_ON)
 		return -EPERM;
@@ -971,9 +980,7 @@ signed int fm_setvol(struct fm *fm, unsigned int vol)
 	if (FM_LOCK(fm_ops_lock))
 		return -FM_ELOCK;
 
-	tmp_vol = (vol > 15) ? 15 : vol;
-	fm_low_ops.bi.volset(tmp_vol);
-	fm->vol = (signed int) tmp_vol;
+	fm_volset(fm, vol);
 
 	FM_UNLOCK(fm_ops_lock);
 	return 0;
@@ -1657,16 +1664,14 @@ signed int fm_tune(struct fm *fm, struct fm_tune_parm *parm)
 #if (FM_INVALID_CHAN_NOISE_REDUCING)
 	if (fm_low_ops.bi.is_valid_freq) {
 		if (fm_low_ops.bi.is_valid_freq(parm->freq)) {
-			if (fm->vol != 15) {
-				fm_low_ops.bi.volset(15);
-				fm->vol = 15;
-				WCN_DBG(FM_NTC | MAIN, "Valid freq, volset: 15\n");
+			if (fm->vol != FM_VOL_MAX) {
+				fm_volset(fm, FM_VOL_MAX);
+				WCN_DBG(FM_NTC | MAIN, "Valid freq, volset: %d\n", FM_VOL_MAX);
 			}
 			WCN_DBG(FM_NTC | MAIN, "FM tune to a valid channel resume volume.\n");
 		} else {
 			if (fm->vol != 5) {
-				fm_low_ops.bi.volset(5);
-				fm->vol = 5;
+				fm_volset(fm, 5);
 				WCN_DBG(FM_NTC | MAIN, "Not a valid freq, volset: 5\n");
 			}
 			WCN_DBG(FM_NTC | MAIN, "FM tune to an invalid channel.\n");
@@ -2169,15 +2174,13 @@ void fm_cqi_check_work_func(struct work_struct *work)
 
 	if (fm_low_ops.bi.is_valid_freq) {
 		if (fm_low_ops.bi.is_valid_freq(fm->cur_freq)) {
-			if (fm->vol != 15) {
-				fm_low_ops.bi.volset(15);
-				fm->vol = 15;
-				WCN_DBG(FM_NTC | MAIN, "Valid freq, volset: 15\n");
+			if (fm->vol != FM_VOL_MAX) {
+				fm_volset(fm, FM_VOL_MAX);
+				WCN_DBG(FM_NTC | MAIN, "Valid freq, volset: %d\n", FM_VOL_MAX);
 			}
 		} else {
 			if (fm->vol != 5) {
-				fm_low_ops.bi.volset(5);
-				fm->vol = 5;
+				fm_volset(fm, 5);
 				WCN_DBG(FM_NTC | MAIN, "Not a valid freq, volset: 5\n");
 			}
 		}

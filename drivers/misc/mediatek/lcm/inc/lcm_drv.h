@@ -21,8 +21,9 @@
 #if defined(CONFIG_SMCDSD_PANEL)
 #include "smcdsd_notify.h"
 #include "smcdsd_abd.h"
-extern unsigned char rx_offset;
+extern unsigned int rx_offset;
 extern unsigned char data_type;
+extern unsigned int gpara_len;
 #endif
 
 #ifndef ARY_SIZE
@@ -902,7 +903,7 @@ struct LCM_DTS {
 struct LCM_setting_table_V3 {
 	unsigned char id;
 	unsigned char cmd;
-	unsigned char count;
+	unsigned int count;
 	unsigned char para_list[512];
 };
 
@@ -938,11 +939,11 @@ struct LCM_UTIL_FUNCS {
 
 	void (*dsi_set_cmdq_V3)(struct LCM_setting_table_V3 *para_list,
 			unsigned int size, unsigned char force_update);
-	void (*dsi_set_cmdq_V2)(unsigned int cmd, unsigned char count,
+	void (*dsi_set_cmdq_V2)(unsigned int cmd, unsigned int count,
 			unsigned char *para_list, unsigned char force_update);
 	void (*dsi_set_cmdq)(unsigned int *pdata, unsigned int queue_size,
 			unsigned char force_update);
-	void (*dsi_set_null)(unsigned int cmd, unsigned char count,
+	void (*dsi_set_null)(unsigned int cmd, unsigned int count,
 			unsigned char *para_list, unsigned char force_update);
 	void (*dsi_write_cmd)(unsigned int cmd);
 	void (*dsi_write_regs)(unsigned int addr, unsigned int *para,
@@ -962,19 +963,22 @@ struct LCM_UTIL_FUNCS {
 	void (*dsi_set_cmdq_V11)(void *cmdq, unsigned int *pdata,
 			unsigned int queue_size, unsigned char force_update);
 	void (*dsi_set_cmdq_V22)(void *cmdq, unsigned int cmd,
-			unsigned char count, unsigned char *para_list,
+			unsigned int count, unsigned char *para_list,
 			unsigned char force_update);
 	void (*dsi_swap_port)(int swap);
 	void (*dsi_set_cmdq_V23)(void *cmdq, unsigned int cmd,
-		unsigned char count, unsigned char *para_list,
+		unsigned int count, unsigned char *para_list,
 		unsigned char force_update);	/* dual */
+	void (*dsi_set_cmdq_V24)(void *cmdq, unsigned int cmd,
+		unsigned int count, unsigned char *para_list,
+		unsigned char force_update, unsigned int hs);	/* Adding HS */
 	void (*mipi_dsi_cmds_tx)(void *cmdq, struct dsi_cmd_desc *cmds);
 	unsigned int (*mipi_dsi_cmds_rx)(char *out,
 		struct dsi_cmd_desc *cmds, unsigned int len);
 	/*Dynfps*/
 	void (*dsi_dynfps_send_cmd)(
 		void *cmdq, unsigned int cmd,
-		unsigned char count, unsigned char *para_list,
+		unsigned int count, unsigned char *para_list,
 		unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
 };
 enum LCM_DRV_IOCTL_CMD {
@@ -995,6 +999,13 @@ struct LCM_DRIVER {
 	void (*suspend_power)(void);
 	void (*resume_power)(void);
 
+#if defined(CONFIG_SMCDSD_PANEL)
+	void (*cmdq)(unsigned int enable);
+	void (*power_enable)(unsigned int enable);
+	void (*disable)(void);
+	bool (*path_lock)(bool en);
+#endif
+
 	void (*update)(unsigned int x, unsigned int y, unsigned int width,
 			unsigned int height);
 	unsigned int (*compare_id)(void);
@@ -1009,7 +1020,6 @@ struct LCM_DRIVER {
 	bool (*set_hbm_wait)(bool wait);
 	bool (*set_hbm_cmdq)(bool en, void *qhandle);
 	bool (*framedone_notify)(void);
-	bool (*lcm_path_lock)(bool en);
 	void (*set_pwm)(unsigned int divider);
 	unsigned int (*get_pwm)(unsigned int divider);
 	void (*set_backlight_mode)(unsigned int mode);
@@ -1040,10 +1050,6 @@ struct LCM_DRIVER {
 		unsigned int *lcm_count, unsigned int *lcm_value);
 	/* /////////////PWM///////////////////////////// */
 	void (*set_pwm_for_mix)(int enable);
-
-#if defined(CONFIG_SMCDSD_PANEL)
-	void (*reset_enable)(unsigned int enable);
-#endif
 
 	void (*aod)(int enter);
 

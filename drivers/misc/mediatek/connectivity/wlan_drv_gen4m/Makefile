@@ -199,6 +199,14 @@ ifneq ($(filter 6779, $(WLAN_CHIP_ID)),)
     ccflags-y += -DCFG_FORCE_AP1NSS
 endif
 
+ifneq ($(filter 6853, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_MOUTON
+else ifneq ($(filter 6768, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_TALBOT
+else ifneq ($(filter 6765, $(WLAN_CHIP_ID)),)
+    ccflags-y += -DCFG_CERVENO
+endif
+
 ifeq ($(MTK_ANDROID_WMT), y)
     ccflags-y += -DCFG_MTK_ANDROID_WMT=1
     WMT_SUPPORT := y
@@ -440,6 +448,10 @@ else
 $(warning $(MODULE_NAME) is kernel module)
 obj-m += $(MODULE_NAME).o
 ccflags-y += -DCONFIG_WLAN_DRV_BUILD_IN=0
+endif
+
+ifneq ($(filter yes,$(MTK_TC10_IN_HOUSE)),)
+ccflags-y += -DMTK_TC10_IN_HOUSE
 endif
 
 # ---------------------------------------------------

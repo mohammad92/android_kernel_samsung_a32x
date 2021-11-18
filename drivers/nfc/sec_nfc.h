@@ -41,6 +41,7 @@
 #define nfc_print_hex_dump(a, b, c)	do { } while (0)
 #define nfc_logger_init()		do { } while (0)
 #define nfc_logger_set_max_count(a)	do { } while (0)
+#define nfc_logger_register_nfc_stauts_func(a)	do { } while (0)
 #endif
 
 /* size */

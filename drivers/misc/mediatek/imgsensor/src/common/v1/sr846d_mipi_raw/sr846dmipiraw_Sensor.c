@@ -2918,6 +2918,7 @@ int sr846d_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int siz
 	kal_uint32 i = 0;
 	kal_uint8 otp_bank = 0;
 	kal_uint16 read_addr = 0;
+	int ret = -1;
 
 	pr_debug("%s - E\n", __func__);
 
@@ -2926,9 +2927,10 @@ int sr846d_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int siz
 		return -1;
 	}
 
-	streaming_control(true);
+	//streaming_control(true);
 
 	// OTP initial setting
+	write_cmos_sensor_8(0x0A02, 0x01);
 	write_cmos_sensor_8(0x0A20, 0x00);
 	write_cmos_sensor_8(0x0A00, 0x00);
 	usleep_range(10000, 10100);
@@ -2956,14 +2958,18 @@ int sr846d_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int siz
 		break;
 	default:
 		pr_err("%s, check bank: fail\n", __func__);
-		return -1;
+		break;
 	}
 
-	for (i = 0; i < size; i++) {
-		*(data + i) = sr846d_otp_read_byte(read_addr);
-		pr_debug("read data addr:0x%x, value:0x%x, i:%d\n", read_addr, *(data + i), i);
-		read_addr += 1;
+	if (read_addr) {
+		for (i = 0; i < size; i++) {
+			*(data + i) = sr846d_otp_read_byte(read_addr);
+			pr_debug("read data addr:0x%x, value:0x%x, i:%d\n", read_addr, *(data + i), i);
+			read_addr += 1;
+		}
+		ret = (int)size;
 	}
+
 	// Streaming mode change
 	write_cmos_sensor_8(0x0A20, 0x00);
 	write_cmos_sensor_8(0x0A00, 0x00);
@@ -2974,12 +2980,12 @@ int sr846d_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int siz
 	write_cmos_sensor_8(0x0A00, 0x01);
 
 	// SW reset
-	write_cmos_sensor_8(0x0F00, 0x01);
-	usleep_range(1000, 1100);
-	write_cmos_sensor_8(0x0F00, 0x00);
-	sensor_init();
+	//write_cmos_sensor_8(0x0F00, 0x01);
+	//usleep_range(1000, 1100);
+	//write_cmos_sensor_8(0x0F00, 0x00);
+	//sensor_init();
 	pr_debug("%s - X\n", __func__);
-	return (int)size;
+	return ret;
 }
 
 UINT32 SR846D_MIPI_RAW_SensorInit(struct SENSOR_FUNCTION_STRUCT **pfFunc)

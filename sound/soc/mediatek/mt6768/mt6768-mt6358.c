@@ -24,6 +24,12 @@
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
 
 static const char *const mt6768_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
+#ifdef CONFIG_SND_SOC_AW8896
+						  MTK_SPK_AWINIC_AW8896_STR,
+#endif
+#ifdef CONFIG_SND_SOC_SMA1303
+						  MTK_SPK_SILICON_SM1303_STR,
+#endif
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR};
 static const char *const mt6768_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
@@ -278,6 +284,7 @@ static int mt6768_mt6358_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+#if !defined(CONFIG_SND_SOC_SMA1303) && !defined(CONFIG_SND_SOC_AW8896)
 static int mt6768_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				      struct snd_pcm_hw_params *params)
 {
@@ -290,6 +297,7 @@ static int mt6768_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	params_set_format(params, SNDRV_PCM_FORMAT_S32_LE);
 	return 0;
 }
+#endif
 
 #ifdef CONFIG_MTK_VOW_SUPPORT
 static const struct snd_pcm_hardware mt6768_mt6358_vow_hardware = {
@@ -577,7 +585,9 @@ static struct snd_soc_dai_link mt6768_mt6358_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
+#if !defined(CONFIG_SND_SOC_SMA1303) && !defined(CONFIG_SND_SOC_AW8896)
 		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
+#endif
 	},
 	{
 		.name = "I2S0",
@@ -587,7 +597,9 @@ static struct snd_soc_dai_link mt6768_mt6358_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
+#if !defined(CONFIG_SND_SOC_SMA1303) && !defined(CONFIG_SND_SOC_AW8896)
 		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
+#endif
 	},
 	{
 		.name = "I2S1",
@@ -597,7 +609,9 @@ static struct snd_soc_dai_link mt6768_mt6358_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
+#if !defined(CONFIG_SND_SOC_SMA1303) && !defined(CONFIG_SND_SOC_AW8896)
 		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
+#endif
 	},
 	{
 		.name = "I2S2",
@@ -607,7 +621,9 @@ static struct snd_soc_dai_link mt6768_mt6358_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
+#if !defined(CONFIG_SND_SOC_SMA1303) && !defined(CONFIG_SND_SOC_AW8896)
 		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
+#endif
 	},
 	{
 		.name = "HW Gain 1",

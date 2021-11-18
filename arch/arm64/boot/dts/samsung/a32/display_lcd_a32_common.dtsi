@@ -73,7 +73,7 @@
 					"regulator,disable",	"gpio_lcd_rst",
 					"delay,usleep",	"1000",
 					"regulator,enable",	"gpio_lcd_rst",
-					"delay,msleep",	"10";
+					"delay,usleep",	"11000";
 				};
 				panel_reset_disable {
 					type =
@@ -112,7 +112,16 @@
 
 				lcm_params-dsi-data_rate = <1660>; /* 1660 */
 				lcm_params-dsi-ssc_disable = <1>;
-				lcm_params-dsi-cont_clock = <1>;
+				lcm_params-dsi-cont_clock = <0>;
+
+				lcm_params-dfps_enable = <1>;				/* 0:disable, 1:enable */
+				lcm_params-fps_cnt = <2>;
+				lcm_params-available_fps = <6000 9000>;		/* real fps * 100 */
+				lcm_params-vact_timing_fps = <9000 9000>;		/* real fps * 100 */
+				lcm_params-dfps_level = <0 1>;					/* level0, level1 */
+				lcm_params-dfps_date_rate = <1660 1660>;		/* maybe same hs clk */
+
+				lcd_params-gpara-len = <4>;	/* 4: pointing gpara 16bit offset, 3: pointing gpara 8bit offset */
 
 				smcdsd_board = <&smcdsd_board_s6e3fc3>;
 			};

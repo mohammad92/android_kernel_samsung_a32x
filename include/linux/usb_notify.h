@@ -149,8 +149,8 @@ enum usb_itracker_type {
 };
 
 enum usb_current_state {
-	NOTIFY_USB_SUSPENDED,
 	NOTIFY_USB_UNCONFIGURED,
+	NOTIFY_USB_SUSPENDED,
 	NOTIFY_USB_CONFIGURED,
 };
 

@@ -147,6 +147,7 @@ struct imgsensor_cam_info {
 	bool includes_sub;
 	unsigned int sub_sensor_id;
 	unsigned int afcal_type;
+	unsigned int use_adaptive_mipi;
 };
 
 struct imgsensor_rom_info {
@@ -193,6 +194,10 @@ struct imgsensor_rom_info {
 	u32 ap_pdaf_start_addr;
 	u32 ap_pdaf_end_addr;
 	char ap_pdaf_ver[IMGSENSOR_AP_PDAF_VER_SIZE + 1];
+
+	u32 ois_section_crc_addr;
+	u32 ois_start_addr;
+	u32 ois_end_addr;
 
 	unsigned long fw_size;
 	unsigned long setfile_size;
@@ -244,5 +249,9 @@ const struct imgsensor_vendor_rom_addr *imgsensor_sys_get_rom_addr_by_id(
 	unsigned int dualDeviceId, unsigned int sensorId);
 int imgsensor_get_cal_size_by_sensor_idx(int sensor_idx);
 int imgsensor_get_cal_buf_by_sensor_idx(int sensor_idx, char **buf);
+//return sac value for AF
 bool imgsensor_get_sac_value_by_sensor_idx(int sensor_idx, u8 *ac_mode, u8 *ac_time);
+//return cal_addr by command: ois, crosstalk(for remosaic)
+const struct rom_cal_addr *imgsensor_get_cal_addr_by_sensor_idx(int sensor_idx, enum imgsensor_cal_command command);
+bool imgsensor_get_adaptive_mipi_status(int position);
 #endif /* _IMGSENSOR_SYSFS_H_ */

@@ -797,6 +797,8 @@ DEVICE_ATTR(scp_ipi_test, 0444, scp_ipi_test_show, NULL);
 #if SCP_RECOVERY_SUPPORT
 void scp_wdt_reset(enum scp_core_id cpu_id)
 {
+	pr_debug("[SCP] %s %d\n", __func__, cpu_id);
+
 	switch (cpu_id) {
 	case SCP_A_ID:
 		writel(0x8000000f, SCP_A_WDT_REG);
@@ -1959,7 +1961,7 @@ static int __init scp_init(void)
 
 	/* scp request irq */
 	pr_debug("[SCP] request_irq\n");
-#ifdef CONFIG_SENSORS_SSP
+#if defined(CONFIG_SENSORS_SSP) || defined(CONFIG_SHUB)
 	ret = request_threaded_irq(scpreg.irq, NULL, scp_A_irq_handler,
 			IRQF_ONESHOT, "SCP A IPC2HOST", NULL);
 #else

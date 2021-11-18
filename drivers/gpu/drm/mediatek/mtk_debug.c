@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/syscalls.h>
 #include <linux/string.h>
 #include <linux/time.h>
 #include <linux/wait.h>
@@ -63,6 +64,8 @@
 #define SMI_LARB_VC_PRI_MODE (0x020)
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
+
+#define INIT_TID 1
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
@@ -732,6 +735,107 @@ static void mtk_ddic_send_cb(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 	CRTC_MMP_MARK(0, ddic_send_cmd, 1, 1);
+}
+
+int set_lcm_wrapper(struct mtk_ddic_dsi_msg *cmd_msg)
+{
+	int ret = 0;
+	int current_tid = 0;
+	bool recursive_check = false;
+	int cmdq_available = 0;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_ddp_comp *output_comp;
+
+	current_tid = sys_gettid();
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		pr_info("find crtc fail\n");
+		return -EINVAL;
+	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc) {
+		pr_info("find mtk_crtc fail\n");
+		return -EINVAL;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		pr_info("%s:invalid output comp\n", __func__);
+		return -EINVAL;
+	}
+
+	recursive_check = (((int)mtk_crtc->need_lock_tid !=
+							(int)current_tid) &&
+							(int)current_tid != INIT_TID);
+
+	ret = mtk_ddp_comp_io_cmd(output_comp, NULL,
+		READ_CMDQ_OPTION, &cmdq_available);
+
+	DDPMSG("%s + %d_%d_%d\n", __func__, current_tid, mtk_crtc->need_lock_tid, recursive_check);
+
+	if (recursive_check)
+		ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, recursive_check);
+	else if (cmdq_available)
+		ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, recursive_check);
+	else
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL,
+		SET_LCM_DCS_CMD, cmd_msg);
+	return ret;
+}
+
+int read_lcm_wrapper(struct mtk_ddic_dsi_msg *cmd_msg)
+{
+	int ret = 0;
+	int current_tid = 0;
+	bool recursive_check = false;
+	int cmdq_available = 0;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_ddp_comp *output_comp;
+
+	current_tid = sys_gettid();
+
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	if (!crtc) {
+		pr_info("find crtc fail\n");
+		return -EINVAL;
+	}
+
+	mtk_crtc = to_mtk_crtc(crtc);
+	if (!mtk_crtc) {
+		pr_info("find mtk_crtc fail\n");
+		return -EINVAL;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		pr_info("%s:invalid output comp\n", __func__);
+		return -EINVAL;
+	}
+
+	recursive_check = (((int)mtk_crtc->need_lock_tid == 0) &&
+							((int)mtk_crtc->need_lock_tid !=
+							(int)current_tid) &&
+							(int)current_tid != INIT_TID);
+
+	DDPMSG("%s + %d_%d_%d\n", __func__, current_tid, mtk_crtc->need_lock_tid, recursive_check);
+
+	ret = mtk_ddp_comp_io_cmd(output_comp, NULL,
+		READ_CMDQ_OPTION, &cmdq_available);
+
+	if (recursive_check)
+		ret = mtk_ddic_dsi_read_cmd(cmd_msg, recursive_check);
+	else if (cmdq_available)
+		ret = mtk_ddic_dsi_read_cmd(cmd_msg, recursive_check);
+	else
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL,
+		READ_LCM_DCS_CMD, cmd_msg);
+	return ret;
 }
 
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,

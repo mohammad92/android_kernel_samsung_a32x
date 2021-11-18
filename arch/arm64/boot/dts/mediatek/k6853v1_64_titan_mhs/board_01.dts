@@ -210,8 +210,8 @@
 /* touch gpio end */
 /* TOUCH end */
 
-#include "mediatek/k6853v1_64_titan/camera01.dtsi"
-#include "mediatek/k6853v1_64_titan/gpio01.dtsi"
+#include "mediatek/k6853v1_64_titan_mhs/camera01.dtsi"
+#include "mediatek/k6853v1_64_titan_mhs/gpio01.dtsi"
 /* DISPSYS GPIO standardization */
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -428,7 +428,7 @@
 };
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
-	#include "mediatek/bat_setting/k6853v1_64_titan/battery_prop.dtsi"
+	#include "mediatek/bat_setting/k6853v1_64_titan_mhs/battery_prop.dtsi"
 #endif
 
 #endif

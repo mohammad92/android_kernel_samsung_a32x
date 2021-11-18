@@ -19,11 +19,13 @@
 #define STATUS_MASK     (R1_ERROR | R1_CC_ERROR | R1_CARD_ECC_FAILED | R1_WP_VIOLATION | R1_OUT_OF_RANGE)
 
 /* Only [0:4] bits in response are reserved. The other bits shouldn't be used */
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 #define HALT_UNHALT_ERR         0x00000001
 #define CQ_EN_DIS_ERR           0x00000002
 #define RPMB_SWITCH_ERR         0x00000004
 #define CQ_HW_RST		0x00000008
 #define CQERR_MASK	(HALT_UNHALT_ERR | CQ_EN_DIS_ERR | RPMB_SWITCH_ERR | CQ_HW_RST)
+#endif
 
 struct mmc_cid {
 	unsigned int		manfid;
@@ -375,7 +377,9 @@ bool mmc_card_is_blockaddr(struct mmc_card *card);
 
 #define mmc_get_drvdata(c)      dev_get_drvdata(&(c)->dev)
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 extern void mmc_cmdq_error_logging(struct mmc_card *card,
 		struct mmc_cmdq_req *cqrq, u32 status);
+#endif
 
 #endif /* LINUX_MMC_CARD_H */

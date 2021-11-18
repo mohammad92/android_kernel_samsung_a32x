@@ -134,6 +134,7 @@ typedef struct _manager_data_t
 	int manager_dr_state;
 	int pdic_rid_state;
 	int alt_is_support;
+	int usb_factory;
 
 	int usb_enum_state;
 	bool usb_enable_state;

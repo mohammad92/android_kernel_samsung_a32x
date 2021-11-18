@@ -51,6 +51,7 @@
 #include "disp_drv_log.h"
 #include "disp_recovery.h"
 #include "disp_cust.h"
+#include "mtk_notify.h"
 
 static struct dentry *debugfs;
 static struct dentry *debugDir;
@@ -60,7 +61,6 @@ static struct dentry *debugfs_dump;
 
 static const long int DEFAULT_LOG_FPS_WND_SIZE = 30;
 static int debug_init;
-
 
 unsigned char pq_debug_flag;
 unsigned char aal_debug_flag;
@@ -796,6 +796,13 @@ static void process_dbg_opt(const char *opt)
 
 		for (i = 0; i < size; i++)
 			pr_info("para[%d] = 0x%x\n", i, para[i]);
+
+	} else if (strncmp(opt, "lcd:", 4) == 0) {
+		if (strncmp(opt + 4, "on", 2) == 0) {
+			noti_uevent_user(&uevent_data, 1);
+		} else if (strncmp(opt + 4, "off", 3) == 0) {
+			noti_uevent_user(&uevent_data, 0);
+		}
 	} else {
 		dbg_buf[0] = '\0';
 		goto Error;

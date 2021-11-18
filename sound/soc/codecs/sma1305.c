@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* sma1305.c -- sma1305 ALSA SoC Audio driver
  *
- * r005, 2020.12.03	- initial version  sma1305
+ * r006, 2020.12.18	- initial version  sma1305
  *
  * Copyright 2020 Silicon Mitus Corporation / Iron Device Corporation
  *
@@ -104,14 +104,14 @@ struct sma1305_priv {
 
 static struct sma1305_pll_match sma1305_pll_matches[] = {
 /* in_clk_name, out_clk_name, input_clk post_n, n, vco, p_cp */
-PLL_MATCH("1.411MHz",  "24.554MHz", 1411200,  0x05, 0xAE, 0x80, 0x10),
-PLL_MATCH("1.536MHz",  "24.576MHz", 1536000,  0x05, 0xA0, 0x80, 0x10),
-PLL_MATCH("2.822MHz",  "24.554MHz", 2822400,  0x05, 0x57, 0x80, 0x10),
-PLL_MATCH("3.072MHz",  "24.576MHz", 3072000,  0x05, 0x50, 0x80, 0x10),
-PLL_MATCH("6.144MHz",  "24.576MHz", 6144000,  0x05, 0x50, 0x80, 0x14),
-PLL_MATCH("12.288MHz", "24.576MHz", 12288000, 0x05, 0x50, 0x80, 0x18),
-PLL_MATCH("19.2MHz",   "24.48MHz", 19200000, 0x05, 0x66, 0x80, 0x1C),
-PLL_MATCH("24.576MHz", "24.576MHz", 24576000, 0x05, 0x50, 0x80, 0x1C),
+PLL_MATCH("1.411MHz",  "24.554MHz", 1411200,  0x06, 0xD1, 0x88, 0x00),
+PLL_MATCH("1.536MHz",  "24.576MHz", 1536000,  0x06, 0xC0, 0x88, 0x00),
+PLL_MATCH("2.822MHz",  "24.554MHz", 2822400,  0x06, 0xD1, 0x88, 0x04),
+PLL_MATCH("3.072MHz",  "24.576MHz", 3072000,  0x06, 0x60, 0x88, 0x00),
+PLL_MATCH("6.144MHz",  "24.576MHz", 6144000,  0x06, 0x60, 0x88, 0x04),
+PLL_MATCH("12.288MHz", "24.576MHz", 12288000, 0x06, 0x60, 0x88, 0x08),
+PLL_MATCH("19.2MHz",   "24.48MHz", 19200000, 0x06, 0x7B, 0x88, 0x0C),
+PLL_MATCH("24.576MHz", "24.576MHz", 24576000, 0x06, 0x60, 0x88, 0x0C),
 };
 
 static int sma1305_startup(struct snd_soc_codec *);
@@ -170,10 +170,10 @@ static const struct reg_default sma1305_reg_def[] = {
 	{ 0x39, 0x10 }, /* 0x39 PMT_NZ_VAL */
 	{ 0x3E, 0x01 }, /* 0x3E IDLE_MODE_CTRL */
 	{ 0x3F, 0x08 }, /* 0x3F ATEST2  */
-	{ 0x8B, 0x05 }, /* 0x8B PLL_POST_N  */
-	{ 0x8C, 0xA0 }, /* 0x8C PLL_N  */
-	{ 0x8D, 0x80 }, /* 0x8D PLL_A_SETTING  */
-	{ 0x8E, 0x10 }, /* 0x8E PLL_P_CP  */
+	{ 0x8B, 0x06 }, /* 0x8B PLL_POST_N  */
+	{ 0x8C, 0xC0 }, /* 0x8C PLL_N  */
+	{ 0x8D, 0x88 }, /* 0x8D PLL_A_SETTING  */
+	{ 0x8E, 0x00 }, /* 0x8E PLL_P_CP  */
 	{ 0x8F, 0x02 }, /* 0x8F Analog Test  */
 	{ 0x90, 0x02 }, /* 0x90 CrestLim1  */
 	{ 0x91, 0x83 }, /* 0x91 CrestLIm2  */
@@ -1615,8 +1615,8 @@ static int sma1305_set_rmp_put(struct snd_kcontrol *kcontrol,
 
 /* 0x95[6:4] SET_OCL */
 static const char * const sma1305_set_ocl_text[] = {
-	"I_2.8A(L1.9A)", "I_3.0A(L2.0A)", "I_3.2A(L2.2A)", "I_3.4A(L2.4A)",
-	"I_3.7A(L2.6A)", "I_4.0A(L2.8A)", "I_4.4A(L3.1A)", "I_4.8A(L3.4A)"};
+	"I_2.6A(L1.7A)", "I_2.8A(L1.8A)", "I_3.0A(L2.0A)", "I_3.3A(L2.2A)",
+	"I_3.6A(L2.5A)", "I_4.0A(L2.7A)", "I_4.5A(L3.1A)", "I_5.1A(L3.5A)"};
 
 static const struct soc_enum sma1305_set_ocl_enum =
 SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(sma1305_set_ocl_text), sma1305_set_ocl_text);
@@ -2567,7 +2567,7 @@ SND_SOC_BYTES_EXT("Bass Boost SPK Coeff", 7,
 	bass_spk_coeff_get, bass_spk_coeff_put),
 
 /* BROWN_OUT_PROT20 [0x1C] */
-SOC_ENUM_EXT("Transition Time", sma1305_bop_hold_time_enum,
+SOC_ENUM_EXT("BOP Hold Time", sma1305_bop_hold_time_enum,
 	sma1305_bop_hold_time_get, sma1305_bop_hold_time_put),
 
 /* BROWN_OUT_PROT0 [0x1D] */
@@ -3871,7 +3871,7 @@ int sma1305_i2c_probe(struct i2c_client *client,
 	u32 value;
 	unsigned int device_info;
 
-	dev_info(&client->dev, "%s is here. Driver version REV005\n", __func__);
+	dev_info(&client->dev, "%s is here. Driver version REV006\n", __func__);
 
 	sma1305 = devm_kzalloc(&client->dev, sizeof(struct sma1305_priv),
 							GFP_KERNEL);

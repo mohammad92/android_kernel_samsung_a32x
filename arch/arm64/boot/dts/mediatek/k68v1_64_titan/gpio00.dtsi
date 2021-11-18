@@ -81,6 +81,8 @@
 	#size-cells = <0>;
 	clock-frequency = <400000>;
 	mediatek,use-open-drain;
+	ch_offset_default = <0>;
+	ch_offset_ccu = <0>;
 	s2mu106@3D {
 		status = "okay";
 		compatible = "samsung,s2mu106mfd";
@@ -370,7 +372,7 @@
 
 &md1_sim1_hot_plug_eint {
 	compatible = "mediatek,md1_sim1_hot_plug_eint-eint";
-	interrupts = <0 8>;
+	interrupts = <0 4>;
 	debounce = <0 10000>;
 	dedicated = <0 0>;
 	src_pin = <0 1>;

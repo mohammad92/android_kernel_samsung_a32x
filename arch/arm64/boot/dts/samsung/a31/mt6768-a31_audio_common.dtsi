@@ -10,6 +10,12 @@
  * GNU General Public License for more details.
  */
 
+&i2c7 {
+	speaker_amp: speaker_amp@34 {
+		status = "disabled";
+	};
+};
+
 &i2c0 {
 	status = "okay";
 	id = <18>;
@@ -18,6 +24,8 @@
 	#size-cells = <0>;
 
 	sma1303_amp: sma1303@1e {
+		#sound-dai-cells = <0>;
+
 		compatible = "siliconmitus,sma1303";
 		reg = <0x1e>;
 		init-vol = <0x31>;
@@ -29,6 +37,9 @@
 &sound {
 	mtk_spk_i2s_out = <1>;
 	mtk_spk_i2s_in = <2>;
+	mediatek,speaker-codec {
+		sound-dai = <&sma1303_amp>;
+	};
 };
 
 /* I2S gpio configuration */

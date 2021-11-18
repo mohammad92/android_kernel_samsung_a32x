@@ -12,12 +12,18 @@
 
 extern int stui_tsp_enter(void);
 extern int stui_tsp_exit(void);
+extern int stui_tsp_type(void);
 
 static int touch_requested;
 
 static int request_touch(void)
 {
 	int ret = 0;
+	int tsp_type = 0;
+
+	tsp_type = stui_tsp_type();
+	if (tsp_type)
+		stui_set_touch_type(tsp_type);
 
 	if (touch_requested == 1)
 		return -EALREADY;
@@ -30,6 +36,7 @@ static int request_touch(void)
 
 	touch_requested = 1;
 	pr_info(KERN_DEBUG "[STUI] Touch requested\n");
+	pr_info(KERN_DEBUG "[STUI] tsp_type %d\n", tsp_type);
 
 	return ret;
 }

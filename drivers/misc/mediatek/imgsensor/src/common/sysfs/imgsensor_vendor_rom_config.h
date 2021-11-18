@@ -15,9 +15,23 @@
 #include "imgsensor_vendor_rom_config_aat_v32x.h"
 #elif defined(CONFIG_CAMERA_AAU_V32)
 #include "imgsensor_vendor_rom_config_aau_v32.h"
+#elif defined(CONFIG_CAMERA_AAT_V31)
+#include "imgsensor_vendor_rom_config_aat_v31.h"
+#elif defined(CONFIG_CAMERA_AAT_V41)
+#include "imgsensor_vendor_rom_config_aat_v41.h"
+#elif defined(CONFIG_CAMERA_AAU_V22)
+#include "imgsensor_vendor_rom_config_aau_v22.h"
+#elif defined(CONFIG_CAMERA_AAT_V01)
+#include "imgsensor_vendor_rom_config_aat_v01.h"
+#elif defined(CONFIG_CAMERA_AAU_V02)
+#include "imgsensor_vendor_rom_config_aau_v02.h"
+#elif defined(CONFIG_CAMERA_MMU_V32)
+#include "imgsensor_vendor_rom_config_mmu_v32.h"
+#elif defined(CONFIG_CAMERA_MMU_V22)
+#include "imgsensor_vendor_rom_config_mmu_v22.h"
 #else
 //default
-#include "imgsensor_vendor_rom_config_aat_v32x.h"
+#include "imgsensor_vendor_rom_config_default.h"
 #endif
 
 extern const struct imgsensor_vendor_rom_addr *vendor_rom_addr[SENSOR_POSITION_MAX];

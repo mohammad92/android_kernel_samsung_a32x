@@ -43,144 +43,7 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcamaf"},
 };
 
-static const int int_oc_type[REGULATOR_TYPE_MAX_NUM] = {
-	INT_VCAMA1_OC,
-	INT_VCAMD_OC,
-	INT_VCAMIO_OC,
-};
-
-
 static struct REGULATOR reg_instance;
-
-static void imgsensor_oc_handler1(void)
-{
-	pr_debug("[regulator]%s enter vcama oc %d\n",
-		__func__,
-		gimgsensor.status.oc);
-	gimgsensor.status.oc = 1;
-	aee_kernel_warning("Imgsensor OC", "Over current");
-	if (reg_instance.pid != -1 &&
-		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
-		force_sig(SIGKILL,
-				pid_task(find_get_pid(reg_instance.pid),
-						PIDTYPE_PID));
-}
-
-static void imgsensor_oc_handler2(void)
-{
-	pr_debug("[regulator]%s enter vcamd oc %d\n",
-		__func__,
-		gimgsensor.status.oc);
-	gimgsensor.status.oc = 1;
-	aee_kernel_warning("Imgsensor OC", "Over current");
-	if (reg_instance.pid != -1 &&
-		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
-		force_sig(SIGKILL,
-				pid_task(find_get_pid(reg_instance.pid),
-						PIDTYPE_PID));
-}
-
-static void imgsensor_oc_handler3(void)
-{
-	pr_debug("[regulator]%s enter vcamio oc %d\n",
-		__func__,
-		gimgsensor.status.oc);
-	gimgsensor.status.oc = 1;
-	aee_kernel_warning("Imgsensor OC", "Over current");
-	if (reg_instance.pid != -1 &&
-		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
-		force_sig(SIGKILL,
-				pid_task(find_get_pid(reg_instance.pid),
-						PIDTYPE_PID));
-}
-
-#define OC_MODULE "camera"
-enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
-	enum IMGSENSOR_SENSOR_IDX sensor_idx, bool enable)
-{
-	struct regulator *preg = NULL;
-	struct device *pdevice = gimgsensor_device;
-	char str_regulator_name[LENGTH_FOR_SNPRINTF];
-	int i = 0;
-	int ret = 0;
-
-	gimgsensor.status.oc = 0;
-
-	if (enable) {
-		usleep_range(5000, 5100);
-		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
-			ret = snprintf(str_regulator_name,
-					sizeof(str_regulator_name),
-					"cam%d_%s",
-					sensor_idx,
-					regulator_control[i].pregulator_type);
-			if (ret < 0) {
-				pr_info(
-				"[regulator]%s error, ret = %d", __func__, ret);
-				return IMGSENSOR_RETURN_ERROR;
-			}
-			preg = regulator_get(pdevice, str_regulator_name);
-			if (preg && regulator_is_enabled(preg)) {
-				pmic_enable_interrupt(
-					int_oc_type[i], 1, OC_MODULE);
-				regulator_put(preg);
-				pr_debug(
-					"[regulator] %s idx=%d %s enable=%d\n",
-					__func__,
-					sensor_idx,
-					regulator_control[i].pregulator_type,
-					enable);
-			}
-		}
-		rcu_read_lock();
-		reg_instance.pid = current->tgid;
-		rcu_read_unlock();
-	} else {
-		reg_instance.pid = -1;
-		/* Disable interrupt before power off */
-
-		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
-			ret = snprintf(str_regulator_name,
-					sizeof(str_regulator_name),
-					"cam%d_%s",
-					sensor_idx,
-					regulator_control[i].pregulator_type);
-			if (ret < 0) {
-				pr_err(
-				"[regulator]%s error, ret = %d", __func__, ret);
-				return IMGSENSOR_RETURN_ERROR;
-			}
-			preg = regulator_get(pdevice, str_regulator_name);
-			if (preg) {
-				pmic_enable_interrupt(
-					int_oc_type[i], 0, OC_MODULE);
-				regulator_put(preg);
-				pr_debug("[regulator] %s idx=%d %s enable=%d\n",
-					__func__,
-					sensor_idx,
-					regulator_control[i].pregulator_type,
-					enable);
-			}
-		}
-
-	}
-
-	return IMGSENSOR_RETURN_SUCCESS;
-}
-
-enum IMGSENSOR_RETURN imgsensor_oc_init(void)
-{
-	/* Register your interrupt handler of OC interrupt at first */
-	pmic_register_interrupt_callback(INT_VCAMA1_OC, imgsensor_oc_handler1);
-	pmic_register_interrupt_callback(INT_VCAMD_OC, imgsensor_oc_handler2);
-	pmic_register_interrupt_callback(INT_VCAMIO_OC, imgsensor_oc_handler3);
-
-	gimgsensor.status.oc  = 0;
-	gimgsensor.imgsensor_oc_irq_enable = imgsensor_oc_interrupt;
-	reg_instance.pid = -1;
-
-	return IMGSENSOR_RETURN_SUCCESS;
-}
 
 static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 {
@@ -221,7 +84,9 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 		}
 	}
 	pdevice->of_node = pof_node;
-	imgsensor_oc_init();
+
+	//removed codes because this code is unnecessary
+	//imgsensor_oc_init();
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 static enum IMGSENSOR_RETURN regulator_release(void *pinstance)

@@ -92,7 +92,7 @@
 			flash-brightness = <0xF>; //0x0(300mA) ~ 0xF(1500mA) : 50mA Step
 			preflash-brightness = <0x7>;
 			torch-brightness = <0x7>; //0x0(50mA) ~ 0x7(225mA) : 25mA Step
-			factory_current = <0x0>; //0x0(300mA)
+			factory_current = <0x6>; //0x0(300mA)
 			timeout = <0xff>;
 		};
 	};
@@ -142,7 +142,7 @@
 		<23 0 0 0 0 0 0>,
 		<24 3 0 0 1 1 0>,
 		<25 0 1 0 0 2 0>,	/* LCD_EN_1P8 */
-		<26 0 1 0 0 0 0>,
+		<26 0 0 0 1 0 0>,	/* NC */
 		<27 0 0 0 1 0 0>,
 		<28 0 0 0 1 0 0>,	/* FG_ERR */
 		<29 0 1 0 0 0 0>,
@@ -215,19 +215,19 @@
 		<96 1 1 0 0 0 0>,
 		<97 0 0 0 1 0 0>,
 		<98 0 0 0 0 0 0>,
-		<99 1 1 0 0 0 0>,
-		<100 1 1 0 0 0 0>,
+		<99 0 1 0 0 0 0>,
+		<100 0 1 0 0 0 0>,
 		<101 0 1 0 0 0 0>,
 		<102 0 1 0 0 0 0>,
 		<103 1 0 0 1 1 1>,
 		<104 1 0 0 1 1 1>,
-		<105 1 0 0 1 1 1>,
-		<106 1 0 0 1 1 1>,
+		<105 0 0 0 0 0 1>,
+		<106 0 0 0 0 0 1>,
 		<107 0 0 0 1 0 0>,
-		<108 1 1 0 0 0 0>,
+		<108 0 1 0 0 0 0>,
 		<109 0 1 0 0 0 0>,
 		<110 0 0 0 1 0 0>,
-		<111 1 1 0 0 0 0>,
+		<111 0 1 0 0 0 0>,
 		<112 0 0 0 0 0 0>,	/* AMP_INT */
 		<113 0 0 0 1 0 0>,
 		<114 0 0 0 1 0 0>,
@@ -311,6 +311,7 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/mmc/mt6768-msdc.h>
 
 &touch {
 	interrupt-parent = <&pio>;
@@ -322,6 +323,11 @@
 	interrupt-parent = <&pio>;
 	interrupts = <44 IRQ_TYPE_EDGE_RISING 44 1>;
 	status = "okay";
+};
+
+&msdc1 {
+	cd_level = /bits/ 8 <MSDC_CD_HIGH>;
+	cd-gpios = <&pio 9 0>;
 };
 
 &main_pmic {

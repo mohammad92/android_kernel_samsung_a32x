@@ -188,8 +188,16 @@
 		};
 	};
 	camera1_vcamd_off: camera1_vcamd_output_low@gpio179 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO179__FUNC_GPIO179>;
+			output-low;
+		};
 	};
 	camera1_vcamd_on: camera1_vcamd_output_high@gpio179 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO179__FUNC_GPIO179>;
+			output-high;
+		};
 	};
 	camera2_vcama_off: camera2_vcama_output_low@gpio107 {
 		pins_cmd_dat {
@@ -267,6 +275,7 @@
 	pinctrl-32 = <&camera2_mclk_6mA>;
 	pinctrl-33 = <&camera2_mclk_8mA>;
 
+	cam0_vcama-supply = <&mt_pmic_vcama1_ldo_reg>;
 	cam1_vcama-supply = <&mt_pmic_vcama2_ldo_reg>;
 	cam2_vcamd-supply = <&mt_pmic_vcamd_ldo_reg>;
 	cam0_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;

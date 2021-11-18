@@ -98,6 +98,8 @@ static struct LCM_UTIL_FUNCS lcm_util = {0};
 			lcm_util.dsi_set_cmdq_V3(para_tbl, size, force_update)
 #define dsi_set_cmdq_V22(cmdq, cmd, count, ppara, force_update) \
 			lcm_util.dsi_set_cmdq_V22(cmdq, cmd, count, ppara, force_update)
+#define dsi_set_cmdq_V24(cmdq, cmd, count, ppara, force_update, hs) \
+			lcm_util.dsi_set_cmdq_V24(cmdq, cmd, count, ppara, force_update, hs)
 #define dsi_set_cmdq_V2(cmd, count, ppara, force_update) \
 			lcm_util.dsi_set_cmdq_V2(cmd, count, ppara, force_update)
 #define dsi_set_cmdq(pdata, queue_size, force_update) \
@@ -121,7 +123,7 @@ static struct LCM_UTIL_FUNCS lcm_util = {0};
 struct LCM_setting_table {
 	unsigned cmd;
 	unsigned char count;
-	unsigned char para_list[64];
+	unsigned char para_list[510];
 };
 
 static struct LCM_setting_table hbm_on[] = {
@@ -330,8 +332,8 @@ static void push_table(void *cmdq, struct LCM_setting_table *table,
 #endif
 			break;
 		default:
-			dsi_set_cmdq_V22(cmdq, cmd, table[i].count,
-				table[i].para_list, force_update);
+			dsi_set_cmdq_V24(cmdq, cmd, table[i].count,
+				table[i].para_list, force_update, 0);
 		}
 	}
 }

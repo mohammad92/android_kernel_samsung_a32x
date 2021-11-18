@@ -49,7 +49,7 @@ int ili_spi_write_then_read_split(struct spi_device *spi,
 	struct spi_message message;
 	struct spi_transfer *xfer;
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		return -1;
 	}
@@ -174,7 +174,7 @@ int ili_spi_write_then_read_direct(struct spi_device *spi,
 	struct spi_message message;
 	struct spi_transfer xfer;
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		return -1;
 	}
@@ -267,7 +267,7 @@ static int ili_spi_mp_pre_cmd(u8 cdc)
 {
 	u8 pre[5] = {0};
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		return -1;
 	}
@@ -311,7 +311,7 @@ static int ili_spi_pll_clk_wakeup(void)
 	u8 wakeup[9] = {0xA3, 0xA3, 0xA3, 0xA3, 0xA3, 0xA3, 0xA3, 0xA3, 0xA3};
 	u32 wlen = sizeof(wakeup);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		return -1;
 	}
@@ -341,7 +341,7 @@ static int ili_spi_wrapper(u8 *txbuf, u32 wlen, u8 *rxbuf, u32 rlen, bool spi_ir
 	u8 checksum = 0;
 	bool ice = atomic_read(&ilits->ice_stat);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		return -1;
 	}
@@ -578,6 +578,7 @@ static int ilitek_spi_probe(struct spi_device *spi)
 	ilits->int_pulse = true;
 	ilits->mp_retry = false;
 	ilits->tp_suspend = false;
+	ilits->tp_shutdown = false;
 	ilits->power_status = POWER_ON_STATUS;
 	ilits->screen_off_sate = TP_RESUME;
 

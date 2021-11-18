@@ -57,6 +57,8 @@ unsigned int mtk_dbg_get_lfr_dbg_value(void);
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 			bool blocking, bool need_lock);
 int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg, bool need_lock);
+int set_lcm_wrapper(struct mtk_ddic_dsi_msg *cmd_msg);
+int read_lcm_wrapper(struct mtk_ddic_dsi_msg *cmd_msg);
 #endif
 
 #endif

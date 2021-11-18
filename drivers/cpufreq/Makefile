@@ -16,7 +16,11 @@ ifdef CONFIG_CPU_FREQ_LIMIT
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sched/
+ifdef CONFIG_MACH_MT6739
+obj-y		+= cpufreq_limit_mt6739.o
+else
 obj-y		+= cpufreq_limit.o
+endif
 endif
 
 # CPUfreq governors

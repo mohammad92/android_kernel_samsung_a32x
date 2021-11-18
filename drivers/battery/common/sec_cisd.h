@@ -174,6 +174,11 @@ extern const char *cisd_tx_data_str[];
 #define PAD_INDEX_VALUE		1
 #define PAD_JSON_STRING		"PAD_0x"
 #define MAX_PAD_ID			0xFF
+#define SS_PD_VID			0x04E8
+#define MIN_SS_PD_PID		0x3000
+#define MAX_SS_PD_PID		0x30FF
+#define PD_JSON_STRING		"PID_0x"
+#define PD_COUNT_JSON_STRING	"PID"
 
 struct pad_data {
 	unsigned int id;
@@ -181,6 +186,14 @@ struct pad_data {
 
 	struct pad_data* prev;
 	struct pad_data* next;
+};
+
+struct pd_data {
+	unsigned short pid;
+	unsigned int count;
+
+	struct pd_data *prev;
+	struct pd_data *next;
 };
 
 struct cisd {
@@ -197,8 +210,11 @@ struct cisd {
 	unsigned int tx_data[TX_DATA_MAX];
 
 	struct mutex padlock;
+	struct mutex pdlock;
 	struct pad_data* pad_array;
+	struct pd_data *pd_array;
 	unsigned int pad_count;
+	unsigned int pd_count;
 };
 
 extern struct cisd *gcisd;
@@ -222,5 +238,8 @@ static inline void increase_cisd_count(int type)
 
 void init_cisd_pad_data(struct cisd *cisd);
 void count_cisd_pad_data(struct cisd *cisd, unsigned int pad_id);
+
+void init_cisd_pd_data(struct cisd *cisd);
+void count_cisd_pd_data(unsigned short vid, unsigned short pid);
 
 #endif /* __SEC_CISD_H */

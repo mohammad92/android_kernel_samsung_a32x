@@ -1,7 +1,7 @@
 /*
  * sma1303.h -- sma1303 ALSA SoC Audio driver
  *
- * r003, 2019.11.25
+ * r010_ps, 2020.05.18
  *
  * Copyright 2019 Silicon Mitus Corporation / Iron Device Corporation
  *
@@ -61,7 +61,8 @@
 #define  SMA1303_26_COMP_LIM4		0x26
 /* 0x27 ~ 0x32 : Reserved */
 #define  SMA1303_33_SDM_CTRL		0x33
-/* 0x34 ~ 0x35 : Reserved */
+#define  SMA1303_34_OTP_DATA1		0x34
+/* 0x35 : Reserved */
 #define  SMA1303_36_PROTECTION		0x36
 #define  SMA1303_37_SLOPE_CTRL		0x37
 #define  SMA1303_38_OTP_TRM0		0x38
@@ -103,9 +104,13 @@
 /* SMA1303 Registers Bit Fields */
 
 /* SYSTEM_CTRL : 0x00 */
+#define RESETBYI2C_MASK (1<<1)
+#define RESETBYI2C_NORMAL (0<<1)
+#define RESETBYI2C_RESET (1<<1)
+
 #define POWER_MASK (1<<0)
-#define POWER_ON (1<<0)
 #define POWER_OFF (0<<0)
+#define POWER_ON (1<<0)
 
 /* INTPUT CTRL1 : 0x01 */
 #define MASTER_SLAVE_MASK (1<<7)
@@ -254,8 +259,8 @@
 #define PMOS_TEST_MODE (1<<1)
 
 #define NMOS_ON_MASK (1<<0)
-#define NMOS_NORMAL_MODE (0<<1)
-#define NMOS_TEST_MODE (0<<1)
+#define NMOS_NORMAL_MODE (0<<0)
+#define NMOS_TEST_MODE (1<<0)
 
 /* BST_TEST1 : 0x0C */
 #define SET_OCP_H_MASK (3<<6)
@@ -303,8 +308,8 @@
 #define MUTE_SLOPE_FAST (3<<4)
 
 #define SPK_MUTE_MASK (1<<0)
-#define SPK_MUTE (1<<0)
 #define SPK_UNMUTE (0<<0)
+#define SPK_MUTE (1<<0)
 
 /* SYSTEM_CTRL1 :0x10 */
 #define SPK_MODE_MASK (7<<2)
@@ -353,6 +358,11 @@
 #define QUART_SEL_1_DIV_4 (0<<2)
 #define QUART_SEL_1_DIV_8 (1<<2)
 
+/* OTP_DATA1 : 0x34 */
+#define OTP_LVL_MASK (1<<5)
+#define OTP_LVL_NORMAL (0<<5)
+#define OTP_LVL_LOW (1<<5)
+
 /* PROTECTION : 0x36 */
 #define EDGE_DIS_MASK (1<<7)
 #define EDGE_DIS_ENABLE (0<<7)
@@ -400,6 +410,14 @@
 #define FAST_OFF_DRIVE_SPK_ENABLE (1<<0)
 
 /* PLL_CTRL : 0x8E */
+#define TRM_LVL_MASK (1<<4)
+#define TRM_LVL_NORMAL (0<<4)
+#define TRM_LVL_LOW (1<<4)
+
+#define LOW_OCL_MODE_MASK (1<<3)
+#define LOW_OCL_MODE (0<<3)
+#define NORMAL_OCL_MODE (1<<3)
+
 #define PLL_PD2_MASK (7<<0)
 #define PLL_PD2 (7<<0)
 #define PLL_OPERATION2 (0<<0)
@@ -516,6 +534,9 @@
 /* STATUS2 : 0xFB */
 #define OCP_SPK_STATUS (1<<5)
 #define OCP_BST_STATUS (1<<4)
+#define OTP_STAT_OK_0 (5<<1)
+#define OTP_STAT_OK_1 (2<<2)
+
 #define CLK_MON_STATUS (1<<0)
 
 /* DEVICE_INFO : 0xFF */

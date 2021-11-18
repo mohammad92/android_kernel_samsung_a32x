@@ -3204,7 +3204,9 @@ p2pFuncValidateAuth(IN struct ADAPTER *prAdapter,
 #if CFG_SUPPORT_802_11W
 		/* AP PMF. if PMF connection, do not reset state & FSM */
 		fgPmfConn = rsnCheckBipKeyInstalled(prAdapter, prStaRec);
-		if (fgPmfConn) {
+		if (fgPmfConn &&
+			prP2pBssInfo->u4RsnSelectedAKMSuite !=
+			RSN_AKM_SUITE_SAE) {
 			DBGLOG(P2P, WARN, "PMF Connction, return false\n");
 			return FALSE;
 		}

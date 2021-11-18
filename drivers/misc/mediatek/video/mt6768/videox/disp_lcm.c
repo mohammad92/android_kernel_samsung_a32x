@@ -1425,10 +1425,11 @@ int disp_lcm_suspend(struct disp_lcm_handle *plcm)
 			DISPERR("FATAL ERROR, lcm_drv->suspend is null\n");
 			return -1;
 		}
-#if !defined(CONFIG_SMCDSD_PANEL)
+
 		if (lcm_drv->suspend_power)
 			lcm_drv->suspend_power();
-#endif
+
+
 		return 0;
 	}
 	DISPERR("lcm_drv is null\n");
@@ -1436,7 +1437,7 @@ int disp_lcm_suspend(struct disp_lcm_handle *plcm)
 }
 
 #if defined(CONFIG_SMCDSD_PANEL)
-int disp_lcm_suspend_power(struct disp_lcm_handle *plcm)
+int disp_lcm_power_enable(struct disp_lcm_handle *plcm, unsigned int enable)
 {
 	struct LCM_DRIVER *lcm_drv = NULL;
 
@@ -1444,8 +1445,8 @@ int disp_lcm_suspend_power(struct disp_lcm_handle *plcm)
 	if (_is_lcm_inited(plcm)) {
 		lcm_drv = plcm->drv;
 
-		if (lcm_drv->suspend_power)
-			lcm_drv->suspend_power();
+		if (lcm_drv->power_enable)
+			lcm_drv->power_enable(enable);
 
 		return 0;
 	}
@@ -1453,38 +1454,55 @@ int disp_lcm_suspend_power(struct disp_lcm_handle *plcm)
 	return -1;
 }
 
-int disp_lcm_resume_power(struct disp_lcm_handle *plcm)
+int disp_lcm_disable(struct disp_lcm_handle *plcm)
 {
 	struct LCM_DRIVER *lcm_drv = NULL;
 
-	DISPFUNC();
+	DISPMSG("%s+\n", __func__);
 	if (_is_lcm_inited(plcm)) {
 		lcm_drv = plcm->drv;
-
-		if (lcm_drv->resume_power)
-			lcm_drv->resume_power();
-
+		if (lcm_drv->disable) {
+			lcm_drv->disable();
+		} else {
+			DISPERR("FATAL ERROR, lcm_drv->disable is null\n");
+			return -1;
+		}
 		return 0;
 	}
+
 	DISPERR("lcm_drv is null\n");
 	return -1;
 }
 
-int disp_lcm_reset_enable(struct disp_lcm_handle *plcm, unsigned int enable)
+int disp_lcm_cmdq(struct disp_lcm_handle *plcm, unsigned int enable)
 {
 	struct LCM_DRIVER *lcm_drv = NULL;
 
-	DISPFUNC();
+	DISPMSG("%s, enable:%d\n", __func__, enable);
 	if (_is_lcm_inited(plcm)) {
 		lcm_drv = plcm->drv;
-
-		if (lcm_drv->reset_enable)
-			lcm_drv->reset_enable(enable);
-
+		if (lcm_drv->cmdq) {
+			lcm_drv->cmdq(enable);
+		} else {
+			return -1;
+		}
 		return 0;
 	}
+
 	DISPERR("lcm_drv is null\n");
 	return -1;
+}
+
+int disp_lcm_path_lock(bool lock, struct disp_lcm_handle *plcm)
+{
+	if (!_is_lcm_inited(plcm)) {
+		DISPERR("lcm_drv is null\n");
+		return -1;
+	}
+
+	plcm->drv->path_lock(lock);
+
+	return 0;
 }
 #endif
 
@@ -1674,18 +1692,6 @@ int disp_lcm_framedone_notify(struct disp_lcm_handle *plcm)
 	}
 
 	plcm->drv->framedone_notify();
-
-	return 0;
-}
-
-int disp_lcm_path_lock(bool lock, struct disp_lcm_handle *plcm)
-{
-	if (!_is_lcm_inited(plcm)) {
-		DISPERR("lcm_drv is null\n");
-		return -1;
-	}
-
-	plcm->drv->lcm_path_lock(lock);
 
 	return 0;
 }

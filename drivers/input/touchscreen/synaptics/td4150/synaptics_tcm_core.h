@@ -95,7 +95,7 @@
 #define HOST_DOWNLOAD_WAIT_MS 100
 #define HOST_DOWNLOAD_TIMEOUT_MS 500
 
-#if 0
+#if 1
 #define LOGx(func, dev, log, ...) \
 	func(dev, "%s info: " log, __func__, ##__VA_ARGS__)
 

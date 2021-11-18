@@ -197,7 +197,9 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	}
 
 #ifdef CONFIG_SEC_DEBUG
-	sec_dump_task_info();
+#ifndef CONFIG_MACH_MT6739
+	sec_debug_dump_info();
+#endif
 #endif
 
 	mrdump_mini_ke_cpu_regs(regs);

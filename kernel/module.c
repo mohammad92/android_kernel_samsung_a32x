@@ -73,6 +73,9 @@
 #include <linux/rkp.h>
 #endif
 #endif
+#ifdef CONFIG_RUSTUH_RKP
+#include <linux/rustrkp.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
@@ -3465,7 +3468,7 @@ static noinline int do_init_module(struct module *mod)
 {
 	int ret = 0;
 	struct mod_initfree *freeinit;
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	struct module_info rkp_mod_info;
 #endif
 
@@ -3534,7 +3537,7 @@ static noinline int do_init_module(struct module *mod)
 	mod_tree_remove_init(mod);
 	disable_ro_nx(&mod->init_layout);
 	module_arch_freeing_init(mod);
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	rkp_mod_info.base_va = 0;
 	rkp_mod_info.vm_size = 0;
 	rkp_mod_info.core_base_va = (u64)mod->core_layout.base;
@@ -3632,7 +3635,7 @@ out_unlocked:
 static int complete_formation(struct module *mod, struct load_info *info)
 {
 	int err;
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	struct module_info rkp_mod_info;
 #endif
 
@@ -3653,7 +3656,7 @@ static int complete_formation(struct module *mod, struct load_info *info)
 	 * but kallsyms etc. can see us. */
 	mod->state = MODULE_STATE_COMING;
 	mutex_unlock(&module_mutex);
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	rkp_mod_info.base_va = 0;
 	rkp_mod_info.vm_size = 0;
 	rkp_mod_info.core_base_va = (u64)mod->core_layout.base;

@@ -1577,6 +1577,10 @@ struct COUNTRY_POWER_LIMIT_TABLE_CONFIGURATION
 		, 114, {48, 48, 48, 48, 48, 48, 48, 24, 24}
 	}
 	,
+	{	{'K', 'R'}
+		, 48, {48, 28, 28, 48, 48, 48, 48, 48, 48}
+	}
+	,
 
 	/*Default*/
 	{	{0, 0}

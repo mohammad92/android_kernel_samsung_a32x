@@ -3119,6 +3119,11 @@ void musb_g_reset(struct musb *musb)
 	if (!musb->usb_lock.active)
 		__pm_stay_awake(&musb->usb_lock);
 
+#ifndef FPGA_PLATFORM 
+	musb_platform_reset(musb); 
+	musb_generic_disable(musb); 
+#endif 
+
 	/* re-init interrupt setting */
 	musb->intrrxe = 0;
 	musb_writew(mbase, MUSB_INTRRXE, musb->intrrxe);

@@ -176,3 +176,10 @@ config MTK_SS_90_HZ
 	  Decide whether to support 90hz
 	  Decide whether to support 90hz
 	  Decide whether to support 90hz
+
+config MTK_VSYNC_PRINT
+	bool "print vsync signal in systrace for samsung customer"
+	default y
+	help
+	  define CONFIG_MTK_VSYNC_PRINT
+	  to enable vsync signal print in systrace for samsung customer

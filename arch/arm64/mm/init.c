@@ -59,6 +59,8 @@
 #include <linux/uh.h>
 #ifdef CONFIG_UH_RKP
 #include <linux/rkp.h>
+#elif defined(CONFIG_RUSTUH_RKP)
+#include <linux/rustrkp.h>
 #endif
 #endif
 
@@ -760,7 +762,7 @@ void free_initmem(void)
 	 */
 	unmap_kernel_range((u64)__init_begin, (u64)(__init_end - __init_begin));
 
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP)
 	rkp_deferred_init();
 #endif
 }

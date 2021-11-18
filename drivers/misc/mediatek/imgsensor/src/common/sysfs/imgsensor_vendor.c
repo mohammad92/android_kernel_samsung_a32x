@@ -41,6 +41,7 @@ static int parse_sysfs_caminfo(struct device_node *np,
 		camera_info[position].includes_sub = false;
 	}
 	of_property_read_u32(np, "afcal_type", &camera_info[position].afcal_type);
+	of_property_read_u32(np, "use_adaptive_mipi", &camera_info[position].use_adaptive_mipi);
 
 	return 0;
 }

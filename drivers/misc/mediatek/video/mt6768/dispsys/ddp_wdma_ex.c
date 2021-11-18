@@ -25,6 +25,7 @@
 #include "ddp_mmp.h"
 
 #define ALIGN_TO(x, n)	(((x) + ((n) - 1)) & ~((n) - 1))
+static int wdma_is_sec[2];
 
 /*****************************************************************************/
 unsigned int wdma_index(enum DISP_MODULE_ENUM module)
@@ -429,6 +430,9 @@ void wdma_dump_analysis(enum DISP_MODULE_ENUM module)
 	unsigned int index = wdma_index(module);
 	unsigned int idx_offst = index * DISP_WDMA_INDEX_OFFSET;
 
+	if (wdma_is_sec[index])
+		return;
+
 	DDPDUMP("== DISP WDMA%d ANALYSIS ==\n", index);
 	DDPDUMP(
 		"wdma%d:en=%d,w=%d,h=%d,clip=(%d,%d,%dx%d),pitch=(W=%d,UV=%d),addr=(0x%x,0x%x,0x%x),fmt=%s\n",
@@ -473,8 +477,12 @@ void wdma_dump_analysis(enum DISP_MODULE_ENUM module)
 
 void wdma_dump_reg(enum DISP_MODULE_ENUM module)
 {
+	unsigned int idx = wdma_index(module);
+
+	if (wdma_is_sec[idx])
+		return;
+
 	if (disp_helper_get_option(DISP_OPT_REG_PARSER_RAW_DUMP)) {
-		unsigned int idx = wdma_index(module);
 		unsigned long module_base = DISPSYS_WDMA0_BASE +
 			idx * DISP_WDMA_INDEX_OFFSET;
 
@@ -564,7 +572,6 @@ void wdma_dump_reg(enum DISP_MODULE_ENUM module)
 			0xF08, INREG32(module_base + 0xF08));
 		DDPDUMP("-- END: DISP WDMA0 REGS --\n");
 	} else {
-		unsigned int idx = wdma_index(module);
 		unsigned int off_sft = idx * DISP_WDMA_INDEX_OFFSET;
 
 		DDPDUMP("== DISP WDMA%d REGS ==\n", idx);
@@ -635,7 +642,7 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 	unsigned int ultra_high_us = 4;
 	unsigned int preultra_low_us = 7;
 	unsigned int preultra_high_us = ultra_low_us;
-	unsigned int fifo_pseudo_size = 288;
+	unsigned int fifo_pseudo_size = 244;
 	unsigned int frame_rate = 60;
 	unsigned int bytes_per_sec = 3;
 	/*unsigned int is_primary_flag = 1;*/  /*primary or external*/
@@ -1067,7 +1074,6 @@ static int wdma_check_input_param(struct WDMA_CONFIG_STRUCT *config)
 	return 0;
 }
 
-static int wdma_is_sec[2];
 static inline int wdma_switch_to_sec(enum DISP_MODULE_ENUM module,
 	void *handle)
 {
@@ -1122,20 +1128,12 @@ int wdma_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 
 		cmdqRecReset(nonsec_switch_handle);
 
-		if (wdma_idx == 0) {
-			/* Primary Mode */
-			if (primary_display_is_decouple_mode())
-				cmdqRecWaitNoClear(nonsec_switch_handle,
-					cmdq_event);
-			else
-				_cmdq_insert_wait_frame_done_token_mira(
-					nonsec_switch_handle);
-		} else {
-			/* External Mode */
-			/* ovl1->wdma1 */
-			cmdqRecWaitNoClear(nonsec_switch_handle,
-				CMDQ_SYNC_DISP_EXT_STREAM_EOF);
-		}
+		/* MT6768 should only enter secure state in external mode */
+		/* External Mode */
+		/* ovl1->wdma1 */
+		//cmdqRecWaitNoClear(nonsec_switch_handle,
+		//	CMDQ_SYNC_DISP_EXT_STREAM_EOF);
+
 
 		cmdqRecSetSecure(nonsec_switch_handle, 1);
 

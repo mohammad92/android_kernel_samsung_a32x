@@ -773,7 +773,7 @@ static void run_noise_test_read_lcdoff(void *device_data)
 
 	sec_cmd_set_default_result(sec);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		goto out;
 	}
@@ -810,7 +810,7 @@ static void run_noise_test_read_all_lcdoff(void *device_data)
 
 	sec_cmd_set_default_result(sec);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		goto out;
 	}
@@ -847,7 +847,7 @@ static void run_noise_doze_test_read_all_lcdoff(void *device_data)
 
 	sec_cmd_set_default_result(sec);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		goto out;
 	}
@@ -885,7 +885,7 @@ static void run_raw_doze_test_read_all_lcdoff(void *device_data)
 
 	sec_cmd_set_default_result(sec);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		goto out;
 	}
@@ -923,7 +923,7 @@ static void run_raw_test_read_all_lcdoff(void *device_data)
 
 	sec_cmd_set_default_result(sec);
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		goto out;
 	}
@@ -997,7 +997,7 @@ static void factory_lcdoff_cmd_result_all(void *device_data)
 {
 	struct sec_cmd_data *sec = (struct sec_cmd_data *)device_data;
 
-	if (ilits->power_status == POWER_OFF_STATUS) {
+	if ((ilits->power_status == POWER_OFF_STATUS) || ilits->tp_shutdown) {
 		input_err(true, ilits->dev, "%s failed(power off state).\n", __func__);
 		sec->cmd_all_factory_state = SEC_CMD_STATUS_FAIL;
 		return;
@@ -1158,7 +1158,7 @@ static void prox_lp_scan_mode(void *device_data)
 		goto out;
 	}
 
-	if (ilits->power_status == POWER_ON_STATUS) {
+	if ((ilits->power_status == POWER_ON_STATUS) || ilits->tp_shutdown) {
 		input_info(true, ilits->dev, "%s  now screen on stae, it'll setting after screen off\n", __func__);
 		if (sec->cmd_param[0] == PORX_LP_SCAN_ON)
 			ilits->prox_lp_scan_mode_enabled = true;
@@ -1588,6 +1588,11 @@ static ssize_t enabled_store(struct device *dev,
 	int buff[2];
 	int ret;
 
+	if (ilits->tp_shutdown) {
+		input_err(true, ilits->dev, "%s: already called power shutdown.\n", __func__);
+		return -EINVAL;
+	}
+
 	ret = sscanf(buf, "%d,%d", &buff[0], &buff[1]);
 	if (ret != 2) {
 		input_err(true, ilits->dev,
@@ -1603,6 +1608,8 @@ static ssize_t enabled_store(struct device *dev,
 
 	switch (buff[0]) {
 	case SERVICE_SHUTDOWN:
+		ilits->tp_shutdown = true;
+		ilits->tp_suspend = true;
 		ili_dev_remove();
 		break;
 	case LCD_OFF:

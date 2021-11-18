@@ -349,7 +349,9 @@ static int cmdq_enable(struct mmc_host *mmc)
 	mmc_host_clr_cq_disable(mmc);
 out:
 	if (err)
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 		mmc_cmdq_error_logging(mmc->card, NULL, CQ_EN_DIS_ERR);
+#endif
 	return err;
 }
 

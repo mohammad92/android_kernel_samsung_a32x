@@ -595,6 +595,9 @@ static int mtk_charger_get_charge_type(struct mtk_charger_data *charger)
 		pr_info("%s: slow-charging mode\n", __func__);
 	}
 
+	if (charger->slow_charging)
+		charge_type = POWER_SUPPLY_CHARGE_TYPE_SLOW;
+
 	return charge_type;
 }
 

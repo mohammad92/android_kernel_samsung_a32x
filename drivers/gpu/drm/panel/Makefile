@@ -56,3 +56,4 @@ obj-$(CONFIG_DRM_PANEL_SC_NT36672C_VDO_60HZ) += panel-sc-nt36672c-vdo-60hz.o
 obj-$(CONFIG_DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD) += panel-samsung-s68fc01-vdo-aod.o
 obj-$(CONFIG_DRM_PANEL_K6853V1_64_TD4150_VDO) += panel-synaptics-td4150-vdo.o
 obj-$(CONFIG_DRM_PANEL_K6853V1_64_ILI9882N_VDO) += panel-ilitek-ili9882n-vdo.o
+obj-$(CONFIG_DRM_PANEL_K6853V1_64_NT36675_VDO_90HZ) += panel-csot-nt36675-vdo-90hz.o

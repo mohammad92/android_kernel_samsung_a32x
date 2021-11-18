@@ -67,6 +67,7 @@
 #include "disp_partial.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
 //#include "mmdvfs_mgr.h"
+#include <mmdvfs_pmqos.h>
 #endif
 
 /* device tree */
@@ -988,25 +989,48 @@ int primary_display_request_dvfs_perf(
 
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	if (atomic_read(&dvfs_ovl_req_status) != req) {
-		switch (req) {
-		case HRT_LEVEL_LEVEL3:
-			opp_level = HRT_OPP_LEVEL_LEVEL0;
-			break;
-		case HRT_LEVEL_LEVEL2:
-			opp_level = HRT_OPP_LEVEL_LEVEL0;
-			break;
-		case HRT_LEVEL_LEVEL1:
-			opp_level = HRT_OPP_LEVEL_LEVEL1;
-			break;
-		case HRT_LEVEL_LEVEL0:
-			opp_level = HRT_OPP_LEVEL_LEVEL1;
-			break;
-		case HRT_LEVEL_DEFAULT:
-			opp_level = HRT_OPP_LEVEL_LEVEL1;
-			break;
-		default:
-			opp_level = HRT_OPP_LEVEL_LEVEL1;
-			break;
+		if (primary_display_get_width() >= 1080) {
+			switch (req) {
+			case HRT_LEVEL_LEVEL3:
+				opp_level = HRT_OPP_LEVEL_LEVEL0;
+				break;
+			case HRT_LEVEL_LEVEL2:
+				opp_level = HRT_OPP_LEVEL_LEVEL0;
+				break;
+			case HRT_LEVEL_LEVEL1:
+				opp_level = HRT_OPP_LEVEL_LEVEL1;
+				break;
+			case HRT_LEVEL_LEVEL0:
+				opp_level = HRT_OPP_LEVEL_LEVEL1;
+				break;
+			case HRT_LEVEL_DEFAULT:
+				opp_level = HRT_OPP_LEVEL_DEFAULT;
+				break;
+			default:
+				opp_level = HRT_OPP_LEVEL_DEFAULT;
+				break;
+			}
+		} else {
+			switch (req) {
+			case HRT_LEVEL_LEVEL3:
+				opp_level = HRT_OPP_LEVEL_LEVEL0;
+				break;
+			case HRT_LEVEL_LEVEL2:
+				opp_level = HRT_OPP_LEVEL_LEVEL0;
+				break;
+			case HRT_LEVEL_LEVEL1:
+				opp_level = HRT_OPP_LEVEL_LEVEL1;
+				break;
+			case HRT_LEVEL_LEVEL0:
+				opp_level = HRT_OPP_LEVEL_LEVEL2;
+				break;
+			case HRT_LEVEL_DEFAULT:
+				opp_level = HRT_OPP_LEVEL_DEFAULT;
+				break;
+			default:
+				opp_level = HRT_OPP_LEVEL_DEFAULT;
+				break;
+			}
 		}
 #else
 	if (atomic_read(&dvfs_ovl_req_status) != req) {
@@ -1141,8 +1165,13 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 		dvfs_before_idle = atomic_read(&dvfs_ovl_req_status);
 		/* when screen idle: LP4 enter ULPM; LP3 enter LPM */
-		primary_display_request_dvfs_perf(0,
-			HRT_LEVEL_LEVEL0);
+		if (primary_display_is_video_mode())
+			primary_display_request_dvfs_perf(0,
+				HRT_LEVEL_LEVEL0);
+		/* for display cmd mode 90hz */
+		else
+			primary_display_request_dvfs_perf(0,
+				HRT_LEVEL_DEFAULT);
 #endif
 
 		primary_display_manual_unlock();
@@ -1246,6 +1275,37 @@ void primary_display_sodi_rule_init(void)
 #endif
 }
 
+static int cam_max_bw_cb(struct notifier_block *nb,
+		unsigned long value, void *v)
+{
+	struct LCM_PARAMS *params;
+	unsigned long v_blanking = 125;
+	unsigned long fps = 60;
+	unsigned long bpp = 4;
+	unsigned long resolution = 0;
+	unsigned long mid_value = 0;
+	unsigned long overlap_w = 0;
+
+	params = primary_get_lcm()->params;
+	resolution = params->width * params->height;
+
+	mid_value = value * 100000;
+	mid_value = mid_value / (v_blanking * fps * bpp);
+
+	mid_value *= 100000;
+	overlap_w = mid_value / resolution;
+
+	set_cam_max_bw(overlap_w);
+
+	pr_notice("receive camera max bw=%lu overlap_w:%lu\n",
+		value, overlap_w);
+
+	return 0;
+}
+static struct notifier_block cam_max_bw_notifier = {
+	.notifier_call = cam_max_bw_cb,
+};
+
 int primary_display_lowpower_init(void)
 {
 	struct LCM_PARAMS *params;
@@ -1265,6 +1325,8 @@ int primary_display_lowpower_init(void)
 	/* cmd mode always enable share sram */
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		enter_share_sram(CMDQ_SYNC_RESOURCE_WROT0);
+
+	add_cam_max_bw_notifier(&cam_max_bw_notifier);
 
 	return 0;
 }

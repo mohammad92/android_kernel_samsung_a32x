@@ -89,5 +89,6 @@
 
 #define CCCI_USE_DFD_OFFSET_0
 //define CCCI_ENABLE_MPU_MEMORY_API
+#define ENABLE_MD_SEC_SMEM
 
 #endif

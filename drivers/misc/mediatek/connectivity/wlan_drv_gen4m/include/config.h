@@ -531,7 +531,7 @@
 #define CFG_RAW_BUFFER_SIZE                      1024
 
 /*! Maximum size of IE buffer of each SCAN record */
-#define CFG_IE_BUFFER_SIZE                      512
+#define CFG_IE_BUFFER_SIZE                      800
 
 /*------------------------------------------------------------------------------
  * Flags and Parameters for Power management
@@ -868,7 +868,7 @@
  * after skip roaming in one ESSID AP case
  */
 #define CFG_SUPPORT_ROAMING_SKIP_ONE_AP		0
-#define CFG_SUPPORT_DRIVER_ROAMING		1
+#define CFG_SUPPORT_DRIVER_ROAMING		0
 #else
 #define CFG_SUPPORT_ROAMING_SKIP_ONE_AP		0
 #define CFG_SUPPORT_DRIVER_ROAMING		0

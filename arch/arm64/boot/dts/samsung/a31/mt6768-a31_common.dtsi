@@ -3,7 +3,6 @@
 */
 
 #include "display_lcd_a31_common.dtsi"
-#include "mt6768-a31_abc_common.dtsi"
 
 /* Add Samsung configuration over here */
 / {
@@ -31,6 +30,16 @@
 			muic {
 				new_factory;
 				dcd_timeout;
+			};
+
+			reserved-memory {
+				ion-rbin-heap {
+					compatible = "mediatek,ion-rbin-heap";
+					ion,recyclable;
+					size = <0 0xC800000>;
+					alignment = <0 0x1000>;
+					alloc-ranges = <0 0x40000000 0 0x80000000>;
+				};
 			};
 		};
 	};

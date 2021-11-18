@@ -32,6 +32,12 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#ifdef CONFIG_MTK_S2MU106_FLASHLIGHT
+#include <linux/leds-s2mu106.h>
+#endif
+#ifdef CONFIG_MTK_S2MU005_FLASHLIGHT
+#include <linux/leds-s2mu005.h>
+#endif
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -909,6 +915,13 @@ static int flashlight_release(struct inode *inode, struct file *file)
 #ifdef CONFIG_MTK_SM5714_FLASHLIGHT
 	if (!sm5714_is_fd_in_use())
 #endif
+#ifdef CONFIG_MTK_S2MU106_FLASHLIGHT
+	if (!s2mu106_is_fd_in_use())
+#endif
+#ifdef CONFIG_MTK_S2MU005_FLASHLIGHT
+	if (!s2mu005_is_fd_in_use())
+#endif
+
 	{
 		list_for_each_entry(fdev, &flashlight_list, node) {
 			if (!fdev->ops)

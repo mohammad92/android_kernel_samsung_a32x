@@ -641,6 +641,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t sf_present_fence_wq;
 	struct task_struct *sf_pf_release_thread;
 	atomic_t sf_pf_event;
+	int need_lock_tid;
 };
 
 struct mtk_crtc_state {

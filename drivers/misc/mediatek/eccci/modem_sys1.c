@@ -57,6 +57,12 @@
 #include "modem_secure_base.h"
 #endif
 
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+
+#define MTK_SIP_CCCI_CONTROL_ARCH32		0x82000505
+#define MTK_SIP_CCCI_CONTROL_ARCH64		0xC2000505
+
 #define TAG "mcd"
 
 void ccif_enable_irq(struct ccci_modem *md)
@@ -433,11 +439,16 @@ int __weak md_start_platform(struct ccci_modem *md)
 
 static int ccci_get_md_sec_smem_size_and_update(void)
 {
-#if (MD_GENERATION >= 6297)
+#ifdef ENABLE_MD_SEC_SMEM
 	struct arm_smccc_res res;
 
-	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, UPDATE_MD_SEC_SMEM,
-				0, 0, 0, 0, 0, 0, &res);
+#ifdef __aarch64__
+	arm_smccc_smc(MTK_SIP_CCCI_CONTROL_ARCH64,
+				UPDATE_MD_SEC_SMEM, 0, 0, 0, 0, 0, 0, &res);
+#else
+	arm_smccc_smc(MTK_SIP_CCCI_CONTROL_ARCH32,
+				UPDATE_MD_SEC_SMEM, 0, 0, 0, 0, 0, 0, &res);
+#endif
 
 	return (int)res.a0;
 #else
@@ -1241,12 +1252,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 					*(curr_p + 2), *(curr_p + 3));
 		}
 	}
-	if (flag & DUMP_FLAG_IMAGE) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD image memory\n");
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			(void *)md->mem_layout.md_bank0.base_ap_view_vir,
-			MD_IMG_DUMP_SIZE);
-	}
+
 	if (flag & DUMP_FLAG_LAYOUT) {
 		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD layout struct\n");
 		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,

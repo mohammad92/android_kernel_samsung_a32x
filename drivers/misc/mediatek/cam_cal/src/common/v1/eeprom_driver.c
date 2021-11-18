@@ -30,14 +30,16 @@
 #include "eeprom_i2c_dev.h"
 #include "eeprom_i2c_common_driver.h"
 #include "imgsensor_sysfs.h"
+#include "kd_imgsensor_sysfs_adapter.h"
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_COMPAT
 /* 64 bit */
 #include <linux/fs.h>
 #include <linux/compat.h>
 #endif
-
-
+#ifdef CONFIG_CAMERA_OIS_MCU
+#include "main/inc/camera_ois_mcu.h"
+#endif
 
 #define CAM_CAL_DRV_NAME "CAM_CAL_DRV"
 #define CAM_CAL_DEV_MAJOR_NUMBER 226
@@ -536,7 +538,7 @@ long eeprom_ioctl_control_command(struct stCAM_CAL_INFO_STRUCT *camCalInfo,
 	int i = 0;
 	u32 calData = 0;
 
-	rom_addr = imgsensor_sys_get_rom_addr_by_id(camCalInfo->deviceID, camCalInfo->sensorID);
+	rom_addr = IMGSENSOR_SYSGET_ROM_ADDR_BY_ID(camCalInfo->deviceID, camCalInfo->sensorID);
 	if (rom_addr == NULL) {
 		pr_err("[%s] rom_addr is NULL: deviceID(0x%x), sensorID(0x%x) doesn't have a cal map, ret: %d",
 			__func__, camCalInfo->deviceID, camCalInfo->sensorID, -ENODATA);
@@ -724,7 +726,6 @@ static long EEPROM_drv_ioctl(struct file *file,
 #ifdef CAM_CALGETDLT_DEBUG
 		do_gettimeofday(&ktv1);
 #endif
-
 		pr_debug("SensorID=%x DeviceID=%x\n",
 			ptempbuf->sensorID, ptempbuf->deviceID);
 		pcmdInf = EEPROM_get_cmd_info_ex(
@@ -740,6 +741,13 @@ static long EEPROM_drv_ioctl(struct file *file,
 				return i4RetValue;
 			}
 			break;
+		} else {
+#if defined(CONFIG_CAMERA_OIS_MCU)
+			if (ptempbuf->deviceID == DUAL_CAMERA_MAIN_SENSOR) {
+				//only when eeprom preload of wide sensor
+				ois_mcu_update();
+			}
+#endif
 		}
 
 		/* Check the max size if specified */
@@ -780,12 +788,14 @@ static long EEPROM_drv_ioctl(struct file *file,
 				return -EFAULT;
 			}
 		}
-		if (imgsensor_sysfs_update(pu1Params, ptempbuf->deviceID, ptempbuf->sensorID,
+
+		if (IMGSENSOR_SYSFS_UPDATE(pu1Params, ptempbuf->deviceID, ptempbuf->sensorID,
 			ptempbuf->u4Offset, ptempbuf->u4Length, i4RetValue) < 0) {
 			kfree(pBuff);
 			kfree(pu1Params);
 			return -EFAULT;
 		}
+
 #ifdef CAM_CALGETDLT_DEBUG
 		do_gettimeofday(&ktv2);
 		if (ktv2.tv_sec > ktv1.tv_sec)
@@ -834,7 +844,6 @@ static int EEPROM_drv_open(struct inode *a_pstInode, struct file *a_pstFile)
 		g_drvOpened = 1;
 		spin_unlock(&g_spinLock);
 	}
-	mdelay(2);
 
 	return ret;
 }

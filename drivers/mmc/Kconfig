@@ -24,6 +24,14 @@ config MMC_TEST_MODE
 	  This selects support for test mode for debugging.
 	  Select this option if this feature is needed on working.
 
+config SEC_MSDC_SSC
+	bool "Samsung MSDC SSC feature"
+	depends on MMC != n
+        default n
+	---help---
+          This feature support for MSDC SSC.
+  	  Select this option if this feature is needed on working.
+
 if MMC
 
 source "drivers/mmc/core/Kconfig"

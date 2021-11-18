@@ -67,6 +67,7 @@ extern signed int battery_get_bat_current_mA(void);
 extern signed int battery_get_soc(void);
 extern signed int battery_get_precise_soc(void);
 extern signed int battery_get_uisoc(void);
+extern signed int battery_get_precise_uisoc(void);
 extern signed int battery_get_bat_temperature(void);
 extern signed int battery_get_ibus(void);
 extern signed int battery_get_vbus(void);

@@ -687,6 +687,10 @@ static int mt6370_set_clock_gating(struct tcpc_device *tcpc_dev,
 			TCPC_REG_ALERT_RX_STATUS |
 			TCPC_REG_ALERT_RX_HARD_RST |
 			TCPC_REG_ALERT_RX_BUF_OVF);
+		ret = mt6370_alert_status_clear(tcpc_dev,
+			TCPC_REG_ALERT_RX_STATUS |
+			TCPC_REG_ALERT_RX_HARD_RST |
+			TCPC_REG_ALERT_RX_BUF_OVF);
 	}
 
 	if (ret == 0)
@@ -1187,12 +1191,15 @@ static int mt6370_set_rx_enable(struct tcpc_device *tcpc, uint8_t enable)
 	if (ret == 0)
 		ret = mt6370_i2c_write8(tcpc, TCPC_V10_REG_RX_DETECT, enable);
 
-	if ((ret == 0) && (!enable))
-		ret = mt6370_set_clock_gating(tcpc, true);
-
-	/* For testing */
-	if (!enable)
+	if ((ret == 0) && (!enable)) {
+		/*
+		 * do protocal reset to prevent rx sop intterupt
+		 * before set clock gating in detach flow
+		 */
 		mt6370_protocol_reset(tcpc);
+		ret = mt6370_set_clock_gating(tcpc, true);
+	}
+
 	return ret;
 }
 

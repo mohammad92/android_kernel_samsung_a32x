@@ -28,9 +28,6 @@
 
 #define INPUT_LOG_BUF_SIZE	512
 
-#ifdef CONFIG_SEC_DEBUG_TSP_LOG
-#include <linux/input/sec_tsp_log.h>
-
 /*
  * sys/class/sec/tsp/support_feature
  * bit value should be made a promise with InputFramework.
@@ -46,6 +43,8 @@
 #define INPUT_FEATURE_SUPPORT_MIS_CALIBRATION_TEST	(1 << 9) /* mis-calibration test support */
 #define INPUT_FEATURE_ENABLE_MULTI_CALIBRATION		(1 << 10) /* multi calibration support */
 
+#ifdef CONFIG_SEC_DEBUG_TSP_LOG
+#include <linux/input/sec_tsp_log.h>
 
 #define input_dbg(mode, dev, fmt, ...)						\
 ({										\

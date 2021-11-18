@@ -4365,7 +4365,7 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 
 	mtk_drm_crtc_wait_blank(mtk_crtc);
 
-    /* disable engine secure state */
+/* disable engine secure state */
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (index == 2 && mtk_crtc->sec_on) {
 		mtk_crtc_disable_secure_state(crtc);
@@ -4658,15 +4658,14 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		    plane_state->comp_state.comp_id);
 
 	/* When use Dynamic OVL 4+2 switch feature, need reAttach
-     * crtc's comps, In order to fix comp attach wrong crtc issue,
-     * The first problem solved was GreenScreen, that is play SVP
-     * DRM, then connect WFD, disconnect WFD, then play SVP DRM again,
-     * the video is green on phone.
+	 * crtc's comps, In order to fix comp attach wrong crtc issue,
+	 * The first problem solved was GreenScreen, that is play SVP
+	 * DRM, then connect WFD, disconnect WFD, then play SVP DRM again,
+	 * the video is green on phone.
 	 */
-        if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
-                MTK_DRM_OPT_VDS_PATH_SWITCH))
-            mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
-
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH))
+		mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
@@ -6883,10 +6882,10 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			if (mtk_crtc->sec_on) {
 				mtk_crtc_pkt_create(&cmdq_handle, crtc,
 					mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
- #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
-				CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
- #endif
+					CMDQ_SEC_PRIMARY_DISP, CMDQ_METAEX_NONE);
+#endif
 				DDPMSG("Switch vds: Primary display is sec\n");
 			} else {
 				cmdq_handle =
@@ -6953,7 +6952,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			priv->need_vds_path_switch_back = 1;
 
 #if defined(CONFIG_MTK_TEE_GP_SUPPORT)
-			/* For wfd secure */
+			/* For wfd secure region */
 			DDPMSG("Switch vds: vds call m4u_sec_init\n");
 			m4u_sec_init();
 #endif
@@ -6968,7 +6967,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			int keep_first_layer = false;
 
 			if (mtk_crtc->sec_on) {
-				 mtk_crtc_pkt_create(&cmdq_handle, crtc,
+				mtk_crtc_pkt_create(&cmdq_handle, crtc,
 					mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 				cmdq_sec_pkt_set_data(cmdq_handle, 0, 0,
@@ -6981,7 +6980,6 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 
 				DDPMSG("Switch vds: Primary display is not sec\n");
 			}
-
 
 			if (atomic_read(&mtk_crtc->already_config))
 				mtk_crtc_wait_frame_done(mtk_crtc,

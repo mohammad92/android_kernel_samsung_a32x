@@ -101,6 +101,9 @@ struct mt6360_chip {
 	int irq_gpio;
 	int irq;
 	int chip_id;
+#ifdef CONFIG_SEC_USB_SS_SWITCH
+	int usb_switch_gpio;
+#endif
 
 #if IS_ENABLED(CONFIG_VBUS_NOTIFIER)
 	int vbus_dischg_gpio;
@@ -1292,6 +1295,9 @@ static inline int mt6360_get_fault_status(struct tcpc_device *tcpc, u8 *status)
 
 static int mt6360_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 {
+#ifdef CONFIG_SEC_USB_SS_SWITCH
+	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
+#endif
 	int ret;
 	bool act_as_sink, act_as_drp;
 	u8 status, role_ctrl, cc_role;
@@ -1313,6 +1319,16 @@ static int mt6360_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 	*cc1 = TCPC_V10_REG_CC_STATUS_CC1(status);
 	*cc2 = TCPC_V10_REG_CC_STATUS_CC2(status);
 
+#ifdef CONFIG_SEC_USB_SS_SWITCH
+	if (*cc1 != TYPEC_CC_VOLT_OPEN) {
+		pr_info("usb: CC1_ACTIVE %s\n", __func__);
+		gpio_direction_output(chip->usb_switch_gpio, 1);
+	} else if (*cc2 != TYPEC_CC_VOLT_OPEN) {
+		pr_info("usb: CC2_ACTIVE %s\n", __func__);
+		gpio_direction_output(chip->usb_switch_gpio, 0);
+	}
+#endif		
+ 
 	act_as_drp = TCPC_V10_REG_ROLE_CTRL_DRP & role_ctrl;
 
 	if (act_as_drp)
@@ -2243,6 +2259,10 @@ static int mt6360_set_rx_enable(struct tcpc_device *tcpc, u8 en)
 		ret = mt6360_i2c_write8(tcpc, TCPC_V10_REG_RX_DETECT, en);
 
 	if ((ret == 0) && !en) {
+		/*
+		 * do protocal reset to prevent rx sop intterupt
+		 * before set clock gating in detach flow
+		 */
 		mt6360_protocol_reset(tcpc);
 		ret = mt6360_set_clock_gating(tcpc, true);
 	}
@@ -2529,6 +2549,23 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 #endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
 #endif /* CONFIG_VBUS_NOTIFIER */
 
+#ifdef CONFIG_SEC_USB_SS_SWITCH
+#if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
+	ret = of_get_named_gpio(np, "ss-tcpc,usb_switch_gpio", 0);
+	if (ret < 0) {
+		dev_err(dev, "%s no usb_switch_gpio info\n", __func__);
+		return ret;
+	}
+	chip->usb_switch_gpio = ret;
+#else
+	ret = of_property_read_u32(np, "ss-tcpc,usb_switch_gpio_num",
+				   &chip->usb_switch_gpio);
+	if (ret < 0) {
+		dev_err(dev, "%s no usb_switch_gpio info\n", __func__);
+		return ret;
+	}
+#endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
+#endif /* CONFIG_SEC_USB_SS_SWITCH */
 	res_cnt = of_irq_count(np);
 	if (!res_cnt) {
 		dev_info(dev, "%s no irqs specified\n", __func__);

@@ -221,6 +221,20 @@ extern long DW9719TAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int DW9719TAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9719TAF_GetFileName(unsigned char *pFileName);
 
+#define DW9825AF_OIS_MCU_SetI2Cclient DW9825AF_OIS_MCU_SetI2Cclient_Main
+#define DW9825AF_OIS_MCU_Ioctl DW9825AF_OIS_MCU_Ioctl_Main
+#define DW9825AF_OIS_MCU_Release DW9825AF_OIS_MCU_Release_Main
+#define DW9825AF_OIS_MCU_PowerDown DW9825AF_OIS_MCU_PowerDown_Main
+#define DW9825AF_OIS_MCU_GetFileName DW9825AF_OIS_MCU_GetFileName_Main
+extern int DW9825AF_OIS_MCU_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DW9825AF_OIS_MCU_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int DW9825AF_OIS_MCU_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DW9825AF_OIS_MCU_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int DW9825AF_OIS_MCU_GetFileName(unsigned char *pFileName);
+
 #define DW9839AF_SetI2Cclient DW9839AF_SetI2Cclient_Main
 #define DW9839AF_Ioctl DW9839AF_Ioctl_Main
 #define DW9839AF_Release DW9839AF_Release_Main
@@ -234,6 +248,7 @@ extern int DW9839AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9839AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int DW9839AF_GetFileName(unsigned char *pFileName);
+
 
 #define GT9764AF_SetI2Cclient GT9764AF_SetI2Cclient_Main
 #define GT9764AF_Ioctl GT9764AF_Ioctl_Main

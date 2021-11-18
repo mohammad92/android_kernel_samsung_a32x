@@ -90,7 +90,26 @@ static void musb_set_vbus_current_work(struct work_struct *w)
 	struct musb *musb = container_of(w,
 		struct musb, set_vbus_current_work);
 
+	struct otg_notify *o_notify = get_otg_notify();
+
+        switch (musb->usb_state) {
+        case USB_SUSPEND:
+        /* set vbus current for suspend state is called in usb_notify. */
+                send_otg_notify(o_notify, NOTIFY_EVENT_USBD_SUSPENDED, 1);
+                goto skip;
+        case USB_UNCONFIGURED:
+                send_otg_notify(o_notify, NOTIFY_EVENT_USBD_UNCONFIGURED, 1);
+                break;
+        case USB_CONFIGURED:
+                send_otg_notify(o_notify, NOTIFY_EVENT_USBD_CONFIGURED, 1);
+                break;
+        default:
+                break;
+        }	
+
 	musb_set_vbus_current(musb->usb_state);
+skip:
+	return;
 }
 #endif
 
@@ -299,9 +318,6 @@ static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 {
 	unsigned long default_timeout = jiffies + msecs_to_jiffies(3);
 	static unsigned long last_timer;
-
-	DBG(0, "skip %s\n", __func__);
-	return;
 
 	if (timeout == 0)
 		timeout = default_timeout;

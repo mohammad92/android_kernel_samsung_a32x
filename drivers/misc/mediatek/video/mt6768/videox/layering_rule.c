@@ -43,7 +43,7 @@ int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */
 	{350, 600, 700, 700},
 	/* HRT_BOUND_TYPE_LP4_PLUS */
-	{200, 300, 400, 400},
+	{200, 200, 300, 400},
 	/* HRT_BOUND_TYPE_LP3 */
 	{350, 350, 350, 350},
 	/* HRT_BOUND_TYPE_LP3_PLUS */
@@ -499,16 +499,24 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 	struct layer_config *info;
 	unsigned int disp_idx = 0;
 	unsigned int layer_cnt = 0;
+	unsigned int yuv_cnt = 0;
 
 	for (disp_idx = 0 ; disp_idx < 2; ++disp_idx) {
 		if (disp_info->layer_num[disp_idx] < 1)
 			continue;
 
+		yuv_cnt = 0;
 		/* display not support RGBA1010102 & RGBA_FP16 */
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 			info = &(disp_info->input_config[disp_idx][i]);
+
+#if defined(CONFIG_MTK_HIGH_FRAME_RATE)
+			if (is_yuv(info->src_fmt))
+				yuv_cnt++;
+#endif
 			if (info->src_fmt != DISP_FORMAT_RGBA1010102 &&
-					info->src_fmt != DISP_FORMAT_RGBA_FP16)
+					info->src_fmt != DISP_FORMAT_RGBA_FP16 &&
+					!(is_yuv(info->src_fmt) && yuv_cnt > 1))
 				continue;
 
 			/* push to GPU */

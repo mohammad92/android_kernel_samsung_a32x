@@ -19,6 +19,7 @@
 #include <linux/iio/types.h>
 #include <linux/slab.h>
 #include <linux/version.h>
+#include <linux/rtc.h>
 #if (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE)
 #include <linux/iio/buffer_impl.h>
 #endif
@@ -30,6 +31,7 @@
 #include "ssp_iio.h"
 #include "ssp_scontext.h"
 #include "ssp_kfifo_buf.h"
+#include "ssp_system_checker.h"
 
 #define IIO_CHANNEL             -1
 #define IIO_SCAN_INDEX          3
@@ -237,6 +239,15 @@ void report_sensor_data(struct ssp_data *data, int type,
 	    || type == SENSOR_TYPE_TILT_DETECTOR || type == SENSOR_TYPE_PICK_UP_GESTURE
 	    || type == SENSOR_TYPE_WAKE_UP_MOTION)
 		__pm_wakeup_event(data->ssp_wakelock, 0.3 * HZ);
+
+#ifdef CONFIG_SSP_ENG_DEBUG
+	ssp_system_check_lock();
+	if (is_system_checking())
+		event_test_cb(type, event->timestamp);
+	if (is_event_order_checking())
+		order_test_cb(type, event->timestamp);
+	ssp_system_check_unlock();
+#endif
 }
 
 void report_camera_lux_data(struct ssp_data *data, int lux)
@@ -263,6 +274,12 @@ void report_meta_data(struct ssp_data *data, struct sensor_value *s)
 			     META_TIMESTAMP, meta_event,
 			     data->info[s->meta_data.sensor].report_data_len);
 	kfree(meta_event);
+#ifdef CONFIG_SSP_ENG_DEBUG
+	ssp_system_check_lock();
+	if (is_system_checking())
+		comm_test_cb(s->meta_data.sensor);
+	ssp_system_check_unlock();
+#endif
 }
 
 void report_scontext_data(struct ssp_data *data, char *data_buf, u32 length)
@@ -272,6 +289,13 @@ void report_scontext_data(struct ssp_data *data, char *data_buf, u32 length)
 	u64 timestamp;
 
 	ssp_scontext_log(__func__, data_buf, length);
+
+	if (data_buf[0] == 0x01 && data_buf[1] == 0x01) {
+		int type = data_buf[2] + SS_SENSOR_TYPE_BASE;
+
+		if (type < SS_SENSOR_TYPE_MAX)
+			data->latest_timestamp[type] = get_current_timestamp();
+	}
 
 	start = 0;
 	memcpy(buf, &length, sizeof(u32));
@@ -317,15 +341,15 @@ void report_scontext_notice_data(struct ssp_data *data, char notice)
 	notice_buf[2] = notice;
 	if (notice == SCONTEXT_AP_STATUS_RESET) {
 		len = 4;
-		if (data->reset_type == RESET_TYPE_KERNEL_SYSFS)
+		if (data->reset_info.reason == RESET_TYPE_KERNEL_SYSFS)
 			notice_buf[3] = RESET_REASON_SYSFS_REQUEST;
-		else if (data->reset_type == RESET_TYPE_KERNEL_NO_EVENT)
+		else if (data->reset_info.reason == RESET_TYPE_KERNEL_NO_EVENT)
 			notice_buf[3] = RESET_REASON_KERNEL_RESET;
-		else if (data->reset_type == RESET_TYPE_KERNEL_COM_FAIL)
+		else if (data->reset_info.reason == RESET_TYPE_KERNEL_COM_FAIL)
 			notice_buf[3] = RESET_REASON_KERNEL_RESET;
-		else if (data->reset_type == RESET_TYPE_HUB_CRASHED)
+		else if (data->reset_info.reason == RESET_TYPE_HUB_CRASHED)
 			notice_buf[3] = RESET_REASON_MCU_CRASHED;
-		else if (data->reset_type == RESET_TYPE_HUB_NO_EVENT)
+		else if (data->reset_info.reason == RESET_TYPE_HUB_NO_EVENT)
 			notice_buf[3] = RESET_REASON_HUB_REQUEST;
 	}
 

@@ -107,9 +107,14 @@
 #include <linux/uh.h>
 #ifdef CONFIG_UH_RKP
 #include <linux/rkp.h>
+#elif defined(CONFIG_RUSTUH_RKP)
+#include <linux/rustrkp.h>
 #endif
 #ifdef CONFIG_KDP_CRED
 #include <linux/kdp.h>
+#endif
+#ifdef CONFIG_RUSTUH_KDP
+#include <linux/rustkdp.h>
 #endif
 #endif
 #ifdef CONFIG_MTK_RAM_CONSOLE
@@ -700,7 +705,7 @@ asmlinkage __visible void __init start_kernel(void)
 	boot_cpu_init();
 	page_address_init();
 	pr_notice("%s", linux_banner);
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	rkp_robuffer_init();
 #endif
 	setup_arch(&command_line);
@@ -743,8 +748,11 @@ asmlinkage __visible void __init start_kernel(void)
 	sort_main_extable();
 	trap_init();
 	mm_init();
-#ifdef CONFIG_UH_RKP
+#if defined(CONFIG_UH_RKP) || defined(CONFIG_RUSTUH_RKP)
 	rkp_init();
+#endif
+#ifdef CONFIG_RUSTUH_KDP
+	kdp_enable = 1;
 #endif
 #ifdef CONFIG_KDP_CRED
 	rkp_cred_enable = 1;
@@ -864,7 +872,10 @@ asmlinkage __visible void __init start_kernel(void)
 	if (rkp_cred_enable)
 	    kdp_init();
 #endif
-
+#ifdef CONFIG_RUSTUH_KDP
+	if (kdp_enable)
+		kdp_init();
+#endif
 	cred_init();
 	fork_init();
 	proc_caches_init();
@@ -1275,7 +1286,11 @@ static int __ref kernel_init(void *unused)
 #endif
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
-		if (!ret)
+		if (!ret) {
+#ifdef CONFIG_RUSTUH_RKP
+			rkp_deferred_init();
+#endif
+}
 			return 0;
 		pr_err("Failed to execute %s (error %d)\n",
 		       ramdisk_execute_command, ret);

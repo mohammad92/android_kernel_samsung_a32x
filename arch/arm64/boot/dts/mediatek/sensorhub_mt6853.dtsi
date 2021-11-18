@@ -8,7 +8,7 @@
         };
     };
 };
-/* /home/dpi/qb5_8815/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6853/dts/sensorhub_mt6853.a32x.dtsi */
+/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6853/dts/sensorhub_mt6853.a32x.dtsi */
 / {
     fragment@model {
         target-path = "/";
@@ -28,7 +28,7 @@
         };
     };
 };
-/* /home/dpi/qb5_8815/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6853/dts/sensorhub_mt6853.a32x.05.dtsi */
+/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6853/dts/sensorhub_mt6853.a32x.05.dtsi */
 / {
     fragment@model {
         target-path = "/";
@@ -49,7 +49,7 @@
         };
     };
 };
-/* /home/dpi/qb5_8815/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6853/dts/sensorhub_mt6853.a32x_usa_single.00.dtsi */
+/* /home/dpi/qb5_8814/workspace/P4_1716/android/kernel/kmodule/sensorhub/mtk/mt6853/dts/sensorhub_mt6853.a32x_usa_single.00.dtsi */
 / {
     fragment@model {
         target-path = "/";

@@ -508,28 +508,28 @@
 
 	/********* Regulator setting **************/
 	// Camera0
-	cam0_vcama-supply = <&s2mpb03_l5>;
-	cam0_vcamd-supply = <&s2mpb03_l1>;
-	cam0_vcamio-supply = <&s2mpb03_l3>;
+	cam0_vcama-supply = <&s2mpb03_0_l5>;
+	cam0_vcamd-supply = <&s2mpb03_0_l1>;
+	cam0_vcamio-supply = <&s2mpb03_0_l3>;
 	cam0_vcamaf-supply = <&mt_pmic_vldo28_ldo_reg>;
 
 	// Camera1
-	cam1_vcama-supply = <&s2mpb03_l7>;
-	cam1_vcamd-supply = <&s2mpb03_l2>;
-	cam1_vcamio-supply = <&s2mpb03_l3>;
+	cam1_vcama-supply = <&s2mpb03_0_l7>;
+	cam1_vcamd-supply = <&s2mpb03_0_l2>;
+	cam1_vcamio-supply = <&s2mpb03_0_l3>;
 
 	// Camera2
 	cam2_vcama-supply = <&mt_pmic_vcama1_ldo_reg>;
-	cam2_vcamd-supply = <&s2mpb03_l4>;
-	cam2_vcamio-supply = <&s2mpb03_l3>;
+	cam2_vcamd-supply = <&s2mpb03_0_l4>;
+	cam2_vcamio-supply = <&s2mpb03_0_l3>;
 
 	// Camera3
-	cam3_vcama-supply = <&s2mpb03_l6>;
+	cam3_vcama-supply = <&s2mpb03_0_l6>;
 	cam3_vcamd-supply = <&mt_pmic_vcamd_ldo_reg>;
-	cam3_vcamio-supply = <&s2mpb03_l3>;
+	cam3_vcamio-supply = <&s2mpb03_0_l3>;
 
 	// Camera4
-	cam4_vcamio-supply = <&s2mpb03_l3>;
+	cam4_vcamio-supply = <&s2mpb03_0_l3>;
 
 	status = "okay";
 	vendor {
@@ -618,6 +618,35 @@
 };
 /* CAMERA AF end */
 
+/* CAM PMIC */
+&s2mpb03_0_l1 {
+	regulator-min-microvolt = <1050000>;
+	regulator-max-microvolt = <1100000>;
+};
+&s2mpb03_0_l2 {
+	regulator-min-microvolt = <1000000>;
+	regulator-max-microvolt = <1100000>;
+};
+&s2mpb03_0_l3 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+&s2mpb03_0_l4 {
+	regulator-min-microvolt = <1100000>;
+	regulator-max-microvolt = <1200000>;
+};
+&s2mpb03_0_l5 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2900000>;
+};
+&s2mpb03_0_l6 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2800000>;
+};
+&s2mpb03_0_l7 {
+	regulator-min-microvolt = <2800000>;
+	regulator-max-microvolt = <2900000>;
+};
 
 /*************************
  *       Cmaera I2C  	 

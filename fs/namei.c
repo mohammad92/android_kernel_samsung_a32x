@@ -1237,7 +1237,7 @@ int follow_up(struct path *path)
 		read_sequnlock_excl(&mount_lock);
 		return 0;
 	}
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	mntget(parent->mnt);
 #else
 	mntget(&parent->mnt);
@@ -1247,7 +1247,7 @@ int follow_up(struct path *path)
 	dput(path->dentry);
 	path->dentry = mountpoint;
 	mntput(path->mnt);
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 	path->mnt = parent->mnt;
 #else
 	path->mnt = &parent->mnt;
@@ -1457,7 +1457,7 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
 		mounted = __lookup_mnt(path->mnt, path->dentry);
 		if (!mounted)
 			break;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		path->mnt = mounted->mnt;
 		path->dentry = mounted->mnt->mnt_root;
 #else
@@ -1506,7 +1506,7 @@ static int follow_dotdot_rcu(struct nameidata *nd)
 			unsigned seq = read_seqcount_begin(&mountpoint->d_seq);
 			if (unlikely(read_seqretry(&mount_lock, nd->m_seq)))
 				return -ECHILD;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			if (mparent->mnt == nd->path.mnt)
 #else
 			if (&mparent->mnt == nd->path.mnt)
@@ -1514,7 +1514,7 @@ static int follow_dotdot_rcu(struct nameidata *nd)
 				break;
 			/* we know that mountpoint was pinned */
 			nd->path.dentry = mountpoint;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 			nd->path.mnt = mparent->mnt;
 #else
 			nd->path.mnt = &mparent->mnt;
@@ -1530,7 +1530,7 @@ static int follow_dotdot_rcu(struct nameidata *nd)
 			return -ECHILD;
 		if (!mounted)
 			break;
-#ifdef CONFIG_KDP_NS
+#if defined(CONFIG_KDP_NS) || defined(CONFIG_RUSTUH_KDP_NS)
 		nd->path.mnt = mounted->mnt;
 		nd->path.dentry = mounted->mnt->mnt_root;
 #else

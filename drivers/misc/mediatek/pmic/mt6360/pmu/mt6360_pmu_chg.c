@@ -1049,7 +1049,7 @@ static int mt6360_enable(struct charger_device *chg_dev, bool en)
 				"%s: set ichg fail\n", __func__);
 			goto vsys_wkard_fail;
 		}
-		mdelay(ichg_ramp_t);
+		msleep(ichg_ramp_t);
 	} else {
 		if (mpci->ichg == mpci->ichg_dis_chg) {
 			ret = __mt6360_set_ichg(mpci, mpci->ichg);
@@ -1826,7 +1826,7 @@ static int mt6360_get_charge_type(struct charger_device *chg_dev, u32 *charge_ty
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
 	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_READY;
 	int ret = 0;
-	u32 aicr = 0, aicr_val = 0;
+	u32 aicr = 0;
 
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHG_STAT);
 	if (ret < 0)
@@ -1841,11 +1841,7 @@ static int mt6360_get_charge_type(struct charger_device *chg_dev, u32 *charge_ty
 		ret = mt6360_run_aicc(mpci->chg_dev, &aicr);
 		if (ret < 0)
 			return ret;
-		ret = mt6360_get_aicr(mpci->chg_dev, &aicr_val);
-		if (ret < 0)
-			return ret;
-		if (((aicr > 0) && (aicr <= 400000)) ||
-			((aicr_val > 0) && (aicr_val <= 400000)))
+		if ((aicr > 0) && (aicr <= 400000))
 			*charge_type = POWER_SUPPLY_CHARGE_TYPE_SLOW;
 		else
 			*charge_type = POWER_SUPPLY_CHARGE_TYPE_FAST;
@@ -3443,7 +3439,6 @@ void mt6360_recv_batoc_callback(BATTERY_OC_LEVEL tag)
 					"%s: set shipping mode done\n",
 					__func__);
 		}
-		mdelay(8);
 		cnt++;
 	}
 	dev_info(g_mpci->dev, "%s exit, cnt = %d, FG_CUR_H = %d\n",

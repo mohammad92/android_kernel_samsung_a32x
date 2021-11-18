@@ -7731,6 +7731,9 @@ void wlanInitFeatureOption(IN struct ADAPTER *prAdapter)
 	prWifiVar->uArpMonitorRxPktNum = (uint32_t) wlanCfgGetUint32(
 		prAdapter, "ArpMonitorRxPktNum", 0);
 #endif /* ARP_MONITER_ENABLE */
+
+	prWifiVar->fgSapCheckPmkidInDriver = (uint32_t) wlanCfgGetUint32(
+		prAdapter, "SapCheckPmkidInDriver", FEATURE_ENABLED);
 }
 
 void wlanCfgSetSwCtrl(IN struct ADAPTER *prAdapter)

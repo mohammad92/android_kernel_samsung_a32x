@@ -14,18 +14,15 @@
 #include "fingerprint.h"
 #include "et5xx.h"
 
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/init.h>
-#include <linux/delay.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/irq.h>
 #include <asm/irq.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
-#include <linux/uaccess.h>
 #include <linux/platform_device.h>
 #include <linux/cdev.h>
 #include <linux/miscdevice.h>
@@ -40,21 +37,23 @@ static DECLARE_BITMAP(minors, N_SPI_MINORS);
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static struct et5xx_data *g_data;
+struct debug_logger *g_logger;
 static DECLARE_WAIT_QUEUE_HEAD(interrupt_waitq);
 static unsigned int bufsiz = 1024;
-module_param(bufsiz, uint, 0444);
-MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 
 static irqreturn_t et5xx_fingerprint_interrupt(int irq, void *dev_id)
 {
 	struct et5xx_data *etspi = (struct et5xx_data *)dev_id;
 
+	if (gpio_get_value(etspi->drdyPin)) { /* for active low */
+		pr_info("IRQ is not low (%d), IRQ drop\n", gpio_get_value(etspi->drdyPin));
+		return IRQ_HANDLED;
+	}
 	etspi->int_count++;
 	etspi->finger_on = 1;
 	disable_irq_nosync(etspi->gpio_irq);
 	wake_up_interruptible(&interrupt_waitq);
-	wake_lock_timeout(&etspi->fp_signal_lock, 1 * HZ);
+	__pm_wakeup_event(etspi->fp_signal_lock, 1 * HZ);
 	pr_info("FPS triggered.int_count(%d) On(%d)\n",
 		etspi->int_count, etspi->finger_on);
 	etspi->interrupt_count++;
@@ -277,21 +276,14 @@ static long et5xx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return -ENOTTY;
 	}
 
-	/* Check access direction once here; don't repeat below.
-	 * IOC_DIR is from the user perspective, while access_ok is
-	 * from the kernel perspective; so they look reversed.
-	 */
-	if (_IOC_DIR(cmd) & _IOC_READ)
-		retval = !access_ok(VERIFY_WRITE,
-						(void __user *)arg,
-						_IOC_SIZE(cmd));
-	if (retval == 0 && _IOC_DIR(cmd) & _IOC_WRITE)
-		retval = !access_ok(VERIFY_READ,
-						(void __user *)arg,
-						_IOC_SIZE(cmd));
-	if (retval) {
-		pr_err("err");
-		return -EFAULT;
+	if (!filp || !filp->private_data) {
+		pr_err("NULL pointer passed\n");
+		return -EINVAL;
+	}
+
+	if (IS_ERR((void __user *)arg)) {
+		pr_err("invalid user space pointer %lu\n", arg);
+		return -EINVAL;
 	}
 
 	/* guard against device removal before, or while,
@@ -398,7 +390,7 @@ static long et5xx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case FP_NVM_READ:
-		pr_debug("FP_NVM_READ, (%d)\n", etspi->spi_speed);
+		pr_debug("FP_NVM_READ, (%d)\n", etspi->clk_setting->spi_speed);
 		retval = et5xx_io_nvm_read(etspi, ioc);
 		if (retval < 0) {
 			pr_err("FP_NVM_READ error retval = %d\n", retval);
@@ -411,7 +403,7 @@ static long et5xx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case FP_NVM_WRITE:
-		pr_debug("FP_NVM_WRITE, (%d)\n", etspi->spi_speed);
+		pr_debug("FP_NVM_WRITE, (%d)\n", etspi->clk_setting->spi_speed);
 		retval = et5xx_io_nvm_write(etspi, ioc);
 		if (retval < 0) {
 			pr_err("FP_NVM_WRITE error retval = %d\n", retval);
@@ -424,7 +416,7 @@ static long et5xx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case FP_NVM_WRITEEX:
-		pr_debug("FP_NVM_WRITEEX, (%d)\n", etspi->spi_speed);
+		pr_debug("FP_NVM_WRITEEX, (%d)\n", etspi->clk_setting->spi_speed);
 		retval = et5xx_io_nvm_writeex(etspi, ioc);
 		if (retval < 0) {
 			pr_err("FP_NVM_WRITEEX error retval = %d\n", retval);
@@ -490,11 +482,13 @@ static long et5xx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	case FP_SET_SPI_CLOCK:
 		pr_info("FP_SET_SPI_CLOCK, clock = %d\n", ioc->speed_hz);
-		etspi->spi_speed = (unsigned int)ioc->speed_hz;
+		if (etspi->clk_setting->spi_speed != (unsigned int)ioc->speed_hz)
+			spi_clk_disable(etspi->clk_setting);
+		etspi->clk_setting->spi_speed = (unsigned int)ioc->speed_hz;
 #ifndef ENABLE_SENSORS_FPRINT_SECURE
 		etspi->spi->max_speed_hz = ioc->speed_hz;
 #endif
-		et5xx_spi_clk_enable(etspi);
+		spi_clk_enable(etspi->clk_setting);
 		break;
 
 	/*
@@ -521,28 +515,17 @@ static long et5xx_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #ifdef ENABLE_SENSORS_FPRINT_SECURE
 	case FP_DISABLE_SPI_CLOCK:
 		pr_info("FP_DISABLE_SPI_CLOCK\n");
-		et5xx_spi_clk_disable(etspi);
+		spi_clk_disable(etspi->clk_setting);
 		break;
 	case FP_CPU_SPEEDUP:
 		pr_debug("FP_CPU_SPEEDUP\n");
-		et5xx_set_cpu_speedup(etspi, ioc->len);
+		if (ioc->len)
+			cpu_speedup_enable(etspi->boosting);
+		else
+			cpu_speedup_disable(etspi->boosting);
 		break;
 	case FP_SET_SENSOR_TYPE:
-		if ((int)ioc->len >= SENSOR_OOO &&
-				(int)ioc->len < SENSOR_MAXIMUM) {
-			if ((int)ioc->len == SENSOR_OOO &&
-					etspi->sensortype == SENSOR_FAILED) {
-				pr_info("maintain type check from out of order :%s\n",
-					sensor_status[etspi->sensortype + 2]);
-			} else {
-				etspi->sensortype = (int)ioc->len;
-				pr_info("FP_SET_SENSOR_TYPE :%s\n",
-					sensor_status[etspi->sensortype + 2]);
-			}
-		} else {
-			pr_err("FP_SET_SENSOR_TYPE invalid value %d\n", (int)ioc->len);
-			etspi->sensortype = SENSOR_UNKNOWN;
-		}
+		set_sensor_type((int)ioc->len, &etspi->sensortype);
 		break;
 	case FP_SET_LOCKSCREEN:
 		pr_info("FP_SET_LOCKSCREEN\n");
@@ -710,12 +693,30 @@ int et5xx_platformInit(struct et5xx_data *etspi)
 		retval = -EFAULT;
 	}
 
+#if KERNEL_VERSION(5, 4, 0) > LINUX_VERSION_CODE
+	/* 4.19 R */
+	wakeup_source_init(etspi->fp_signal_lock, "et5xx_sigwake_lock");
+	/* 4.19 Q */
+	if (!(etspi->fp_signal_lock)) {
+		etspi->fp_signal_lock = wakeup_source_create("et5xx_sigwake_lock");
+		if (etspi->fp_signal_lock)
+			wakeup_source_add(etspi->fp_signal_lock);
+	}
 #ifdef ENABLE_SENSORS_FPRINT_SECURE
-	wake_lock_init(&etspi->fp_spi_lock,
-		WAKE_LOCK_SUSPEND, "et5xx_wake_lock");
+	wakeup_source_init(etspi->clk_setting->spi_wake_lock, "et5xx_wake_lock");
+	if (!(etspi->clk_setting->spi_wake_lock)) {
+		etspi->clk_setting->spi_wake_lock = wakeup_source_create("et5xx_wake_lock");
+		if (etspi->clk_setting->spi_wake_lock)
+			wakeup_source_add(etspi->clk_setting->spi_wake_lock);
+	}
 #endif
-	wake_lock_init(&etspi->fp_signal_lock,
-				WAKE_LOCK_SUSPEND, "et5xx_sigwake_lock");
+#else
+	/* 5.4 R */
+	etspi->fp_signal_lock = wakeup_source_register(etspi->dev, "et5xx_sigwake_lock");
+#ifdef ENABLE_SENSORS_FPRINT_SECURE
+	etspi->clk_setting->spi_wake_lock = wakeup_source_register(etspi->dev, "et5xx_wake_lock");
+#endif
+#endif
 
 	pr_info("successful status=%d\n", retval);
 	return retval;
@@ -744,9 +745,9 @@ void et5xx_platformUninit(struct et5xx_data *etspi)
 		gpio_free(etspi->sleepPin);
 		gpio_free(etspi->drdyPin);
 #ifdef ENABLE_SENSORS_FPRINT_SECURE
-		wake_lock_destroy(&etspi->fp_spi_lock);
+		wakeup_source_unregister(etspi->clk_setting->spi_wake_lock);
 #endif
-		wake_lock_destroy(&etspi->fp_signal_lock);
+		wakeup_source_unregister(etspi->fp_signal_lock);
 	}
 }
 
@@ -789,15 +790,20 @@ static int et5xx_parse_dt(struct device *dev, struct et5xx_data *etspi)
 		pr_info("not use btp_regulator\n");
 		etspi->btp_vdd = NULL;
 	} else {
-		etspi->regulator_3p3 = regulator_get(NULL, etspi->btp_vdd);
+		etspi->regulator_3p3 = regulator_get(dev, etspi->btp_vdd);
 		if (IS_ERR(etspi->regulator_3p3) ||
 				(etspi->regulator_3p3) == NULL) {
-			pr_info("not use regulator_3p3\n");
+			pr_info("fail to get regulator_3p3\n");
 			etspi->regulator_3p3 = NULL;
+			return -EINVAL;
 		} else {
 			pr_info("btp_regulator ok\n");
 		}
 	}
+
+	if (of_property_read_u32(np, "etspi-min_cpufreq_limit",
+		&etspi->boosting->min_cpufreq_limit))
+		etspi->boosting->min_cpufreq_limit = 0;
 
 	if (of_property_read_string_index(np, "etspi-chipid", 0,
 			(const char **)&etspi->chipid)) {
@@ -935,7 +941,7 @@ static ssize_t et5xx_bfs_values_show(struct device *dev,
 	struct et5xx_data *etspi = dev_get_drvdata(dev);
 
 	return snprintf(buf, PAGE_SIZE, "\"FP_SPICLK\":\"%d\"\n",
-			etspi->spi_speed);
+			etspi->clk_setting->spi_speed);
 }
 
 static ssize_t et5xx_type_check_show(struct device *dev,
@@ -966,7 +972,9 @@ static ssize_t et5xx_vendor_show(struct device *dev,
 static ssize_t et5xx_name_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%s\n", g_data->chipid);
+	struct et5xx_data *etspi = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", etspi->chipid);
 }
 
 static ssize_t et5xx_adm_show(struct device *dev,
@@ -979,6 +987,7 @@ static ssize_t et5xx_intcnt_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	struct et5xx_data *etspi = dev_get_drvdata(dev);
+
 	return snprintf(buf, PAGE_SIZE, "%d\n", etspi->interrupt_count);
 }
 
@@ -1036,45 +1045,38 @@ static struct device_attribute *fp_attrs[] = {
 
 static void et5xx_work_func_debug(struct work_struct *work)
 {
+	struct debug_logger *logger;
+	struct et5xx_data *etspi;
+
+	logger = container_of(work, struct debug_logger, work_debug);
+	etspi = dev_get_drvdata(logger->dev);
 	pr_info("ldo: %d, sleep: %d, tz: %d, spi_value: 0x%x, type: %s\n",
-		g_data->ldo_enabled, gpio_get_value(g_data->sleepPin),
-		g_data->tz_mode, g_data->spi_value,
-		sensor_status[g_data->sensortype + 2]);
+		etspi->ldo_enabled, gpio_get_value(etspi->sleepPin),
+		etspi->tz_mode, etspi->spi_value,
+		sensor_status[etspi->sensortype + 2]);
 }
 
-static void et5xx_enable_debug_timer(void)
+static struct et5xx_data *alloc_platformdata(struct device *dev)
 {
-	mod_timer(&g_data->dbg_timer,
-		round_jiffies_up(jiffies + FPSENSOR_DEBUG_TIMER_SEC));
-}
+	struct et5xx_data *etspi;
 
-static void et5xx_disable_debug_timer(void)
-{
-	del_timer_sync(&g_data->dbg_timer);
-	cancel_work_sync(&g_data->work_debug);
-}
+	etspi = devm_kzalloc(dev, sizeof(struct et5xx_data), GFP_KERNEL);
+	if (etspi == NULL)
+		return NULL;
 
-static void et5xx_timer_func(struct timer_list *t)
-{
-	queue_work(g_data->wq_dbg, &g_data->work_debug);
-	mod_timer(&g_data->dbg_timer,
-		round_jiffies_up(jiffies + FPSENSOR_DEBUG_TIMER_SEC));
-}
+	etspi->clk_setting = devm_kzalloc(dev, sizeof(*etspi->clk_setting), GFP_KERNEL);
+	if (etspi->clk_setting == NULL)
+		return NULL;
 
-static int et5xx_set_timer(struct et5xx_data *etspi)
-{
-	int retval = 0;
+	etspi->boosting = devm_kzalloc(dev, sizeof(*etspi->boosting), GFP_KERNEL);
+	if (etspi->boosting == NULL)
+		return NULL;
 
-	timer_setup(&etspi->dbg_timer, et5xx_timer_func, 0);
-	etspi->wq_dbg =
-		create_singlethread_workqueue("et5xx_debug_wq");
-	if (!etspi->wq_dbg) {
-		retval = -ENOMEM;
-		pr_err("could not create workqueue\n");
-		return retval;
-	}
-	INIT_WORK(&etspi->work_debug, et5xx_work_func_debug);
-	return retval;
+	etspi->logger = devm_kzalloc(dev, sizeof(*etspi->logger), GFP_KERNEL);
+	if (etspi->logger == NULL)
+		return NULL;
+
+	return etspi;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1094,8 +1096,9 @@ static int et5xx_probe_common(struct device *dev, struct et5xx_data *etspi)
 	pr_info("Entry\n");
 
 	/* Initialize the driver data */
-	g_data = etspi;
 	etspi->dev = dev;
+	etspi->logger->dev = dev;
+	dev_set_drvdata(dev, etspi);
 	spin_lock_init(&etspi->spi_lock);
 	mutex_init(&etspi->buf_lock);
 	mutex_init(&device_list_lock);
@@ -1117,13 +1120,13 @@ static int et5xx_probe_common(struct device *dev, struct et5xx_data *etspi)
 		goto et5xx_probe_platformInit_failed;
 	}
 
-	retval = et5xx_register_platform_variable(etspi);
+	retval = spi_clk_register(etspi->clk_setting, dev);
 	if (retval < 0) {
-		pr_err("platform_variable failed\n");
-		goto et5xx_probe_platform_variable_failed;
+		pr_err("register spi clk failed\n");
+		goto et5xx_probe_spi_clk_register_failed;
 	}
 
-	etspi->spi_speed = (unsigned int)SLOW_BAUD_RATE;
+	etspi->clk_setting->spi_speed = (unsigned int)SLOW_BAUD_RATE;
 	etspi->reset_count = 0;
 	etspi->interrupt_count = 0;
 	etspi->spi_value = 0;
@@ -1171,10 +1174,11 @@ static int et5xx_probe_common(struct device *dev, struct et5xx_data *etspi)
 		goto et5xx_register_failed;
 	}
 
-	retval = et5xx_set_timer(etspi);
+	g_logger = etspi->logger;
+	retval = set_fp_debug_timer(etspi->logger, et5xx_work_func_debug);
 	if (retval)
 		goto et5xx_sysfs_failed;
-	et5xx_enable_debug_timer();
+	enable_fp_debug_timer(etspi->logger);
 	pr_info("is successful\n");
 
 	return retval;
@@ -1185,8 +1189,8 @@ et5xx_register_failed:
 	device_destroy(et5xx_class, etspi->devt);
 	class_destroy(et5xx_class);
 et5xx_create_failed:
-	et5xx_unregister_platform_variable(etspi);
-et5xx_probe_platform_variable_failed:
+	spi_clk_unregister(etspi->clk_setting);
+et5xx_probe_spi_clk_register_failed:
 	et5xx_platformUninit(etspi);
 et5xx_probe_platformInit_failed:
 et5xx_probe_parse_dt_failed:
@@ -1198,13 +1202,13 @@ et5xx_probe_parse_dt_failed:
 #ifdef ENABLE_SENSORS_FPRINT_SECURE
 static int et5xx_probe(struct platform_device *pdev)
 {
-	int retval = 0;
+	int retval = -ENOMEM;
 	struct et5xx_data *etspi;
 
 	pr_info("Platform_device Entry\n");
-	etspi = kzalloc(sizeof(*etspi), GFP_KERNEL);
-	if (!etspi)
-		return -ENOMEM;
+	etspi = alloc_platformdata(&pdev->dev);
+	if (etspi == NULL)
+		goto et5xx_platform_alloc_failed;
 
 	etspi->sensortype = SENSOR_UNKNOWN;
 	etspi->tz_mode = true;
@@ -1217,20 +1221,21 @@ static int et5xx_probe(struct platform_device *pdev)
 	return retval;
 
 et5xx_platform_probe_failed:
-	kfree(etspi);
+	etspi = NULL;
+et5xx_platform_alloc_failed:
 	pr_err("is failed : %d\n", retval);
 	return retval;
 }
 #else
 static int et5xx_probe(struct spi_device *spi)
 {
-	int retval = 0;
+	int retval = -ENOMEM;
 	struct et5xx_data *etspi;
 
 	pr_info("spi_device Entry\n");
-	etspi = kzalloc(sizeof(*etspi), GFP_KERNEL);
-	if (!etspi)
-		return -ENOMEM;
+	etspi = alloc_platformdata(&spi->dev);
+	if (etspi == NULL)
+		goto et5xx_spi_alloc_failed;
 
 	spi->bits_per_word = 8;
 	spi->max_speed_hz = SLOW_BAUD_RATE;
@@ -1242,9 +1247,8 @@ static int et5xx_probe(struct spi_device *spi)
 	retval = spi_setup(spi);
 	if (retval != 0) {
 		pr_err("spi_setup() is failed. status : %d\n", retval);
-		goto et5xx_spi_probe_set_setup_failed;
+		goto et5xx_spi_set_setup_failed;
 	}
-	spi_set_drvdata(spi, etspi);
 
 	retval = et5xx_probe_common(&spi->dev, etspi);
 	if (retval)
@@ -1254,9 +1258,9 @@ static int et5xx_probe(struct spi_device *spi)
 	return retval;
 
 et5xx_spi_probe_failed:
-	spi_set_drvdata(etspi->spi, NULL);
-et5xx_spi_probe_set_setup_failed:
-	kfree(etspi);
+et5xx_spi_set_setup_failed:
+	etspi = NULL;
+et5xx_spi_alloc_failed:
 	pr_err("is failed : %d\n", retval);
 	return retval;
 }
@@ -1268,23 +1272,19 @@ static int et5xx_remove_common(struct device *dev)
 
 	pr_info("Entry\n");
 	if (etspi != NULL) {
-		et5xx_disable_debug_timer();
+		disable_fp_debug_timer(etspi->logger);
 		et5xx_platformUninit(etspi);
-		et5xx_unregister_platform_variable(etspi);
-
-#ifndef ENABLE_SENSORS_FPRINT_SECURE
+		spi_clk_unregister(etspi->clk_setting);
 		spin_lock_irq(&etspi->spi_lock);
-		spi_set_drvdata(etspi->spi, NULL);
 		etspi->spi = NULL;
 		spin_unlock_irq(&etspi->spi_lock);
-#endif
 		mutex_lock(&device_list_lock);
 		fingerprint_unregister(etspi->fp_device, fp_attrs);
 		list_del(&etspi->device_entry);
 		device_destroy(et5xx_class, etspi->devt);
 		clear_bit(MINOR(etspi->devt), minors);
 		if (etspi->users == 0)
-			kfree(etspi);
+			etspi = NULL;
 		mutex_unlock(&device_list_lock);
 	}
 	return 0;
@@ -1305,11 +1305,7 @@ static int et5xx_pm_suspend(struct device *dev)
 	struct et5xx_data *etspi = dev_get_drvdata(dev);
 
 	pr_info("Entry\n");
-	if (etspi != NULL) {
-		et5xx_disable_debug_timer();
-		fps_suspend_set(etspi);
-	}
-
+	disable_fp_debug_timer(etspi->logger);
 	return 0;
 }
 
@@ -1318,11 +1314,7 @@ static int et5xx_pm_resume(struct device *dev)
 	struct et5xx_data *etspi = dev_get_drvdata(dev);
 
 	pr_info("Entry\n");
-	if (etspi != NULL) {
-		et5xx_enable_debug_timer();
-		fps_resume_set();
-	}
-
+	enable_fp_debug_timer(etspi->logger);
 	return 0;
 }
 
@@ -1402,7 +1394,7 @@ static void __exit et5xx_exit(void)
 	spi_unregister_driver(&et5xx_spi_driver);
 #else
 	platform_driver_unregister(&et5xx_spi_driver);
-#endif	
+#endif
 	class_destroy(et5xx_class);
 	unregister_chrdev(ET5XX_MAJOR, et5xx_spi_driver.driver.name);
 }

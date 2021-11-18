@@ -120,10 +120,18 @@ s32 cmdqRecSecureEnableDAPC(struct cmdqRecStruct *handle,
  *	   a. Secure CMDQ support when t-base enabled only
  *	   b. after reset handle, user have to specify protection flag again
  */
+
+int32_t cmdq_task_secure_disable_dapc(struct cmdqRecStruct *handle,	const uint64_t engineFlag);
+int32_t cmdqRecSecureDisableDAPC(struct cmdqRecStruct *handle, const uint64_t engineFlag);
+
 s32 cmdq_task_secure_enable_port_security(struct cmdqRecStruct *handle,
 	const u64 engineFlag);
 s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 	const u64 engineFlag);
+
+int32_t cmdq_task_secure_disable_port_security(struct cmdqRecStruct *handle,
+	const uint64_t engineFlag);
+int32_t cmdqRecSecureDisablePortSecurity(struct cmdqRecStruct *handle,	 const uint64_t engineFlag);
 
 /* Assign secure metadata for client driver */
 s32 cmdq_task_set_secure_meta(struct cmdqRecStruct *handle,

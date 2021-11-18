@@ -14,6 +14,9 @@
 #include <linux/suspend.h>
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
+#ifdef CONFIG_SEC_NAD
+#include <linux/proc_fs.h>
+#endif
 #include <linux/pm_wakeirq.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
@@ -277,7 +280,9 @@ void wakeup_source_unregister(struct wakeup_source *ws)
 {
 	if (ws) {
 		wakeup_source_remove(ws);
-		wakeup_source_sysfs_remove(ws);
+		if (ws->dev)
+			wakeup_source_sysfs_remove(ws);
+
 		wakeup_source_destroy(ws);
 	}
 }
@@ -1221,6 +1226,9 @@ static int __init wakeup_sources_debugfs_init(void)
 {
 	wakeup_sources_stats_dentry = debugfs_create_file("wakeup_sources",
 			S_IRUGO, NULL, NULL, &wakeup_sources_stats_fops);
+#ifdef CONFIG_SEC_NAD
+	proc_create("wakeup_sources", 0644, NULL, &wakeup_sources_stats_fops);
+#endif
 	return 0;
 }
 

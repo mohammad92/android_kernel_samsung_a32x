@@ -628,6 +628,10 @@ struct BSS_INFO {
 #if CFG_TC10_FEATURE
 	u_int8_t aisConnectedBandwidth;
 #endif
+
+	/* Buffer for WPA2 PMKID */
+	/* The PMKID cache lifetime is expire by media_disconnect_indication */
+	struct LINK rPmkidCache;
 };
 
 /* Support AP Selection */
@@ -1181,6 +1185,8 @@ struct WIFI_VAR {
 	uint32_t uArpMonitorNumber;
 	uint32_t uArpMonitorRxPktNum;
 #endif /* ARP_MONITER_ENABLE */
+
+	uint8_t fgSapCheckPmkidInDriver;
 };
 
 /* cnm_timer module */

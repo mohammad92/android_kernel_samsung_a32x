@@ -74,14 +74,14 @@ TZ_RESULT _prepare_region(KREE_SHAREDMEM_PARAM *shm_param)
 	_shm_order = get_order(_shm_size);
 	shared_buf = (struct gz_m4u_msg *)__get_free_pages(GFP_KERNEL,
 			_shm_order);
- 	if (!shared_buf) {
+	if (!shared_buf) {
 		M4ULOG_HIGH("[MTEE][%s] shared_buf alloc Fail.\n", __func__);
- 		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 	}
 
 	pa = (uint64_t)virt_to_phys((void *)shared_buf);
 
- 	M4ULOG_HIGH
+	M4ULOG_HIGH
 	    ("[MTEE][%s]: size=%u, &buf=%llx, PA=%llx, num_Pa=%d, order=%u",
 	     __func__, _shm_size, (uint64_t)shared_buf, pa, _num_PA,
 	     _shm_order);

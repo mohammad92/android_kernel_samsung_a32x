@@ -21,6 +21,7 @@ obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			fbconfig_kdebug.o	\
 			mtkfb_vsync.o		\
 			disp_cust.o             \
+			mtk_notify.o             \
 			debug.o			\
 			primary_display.o	\
 			disp_lowpower.o		\

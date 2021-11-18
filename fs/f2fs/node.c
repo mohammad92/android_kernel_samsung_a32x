@@ -1310,6 +1310,10 @@ static int read_node_page(struct page *page, int op_flags)
 	}
 
 	fio.new_blkaddr = fio.old_blkaddr = ni.blk_addr;
+	if (op_flags & F2FS_REQ_DEFKEY_BYPASS)
+		f2fs_warn(sbi, "inconsistent node lower block, nid: %lu, ino: %lu, blk_addr: %lu",
+				(unsigned long) ni.nid, (unsigned long) ni.ino,
+				(unsigned long) ni.blk_addr);
 
 	err = f2fs_submit_page_bio(&fio);
 
@@ -1346,6 +1350,35 @@ void f2fs_ra_node_page(struct f2fs_sb_info *sbi, nid_t nid)
 	f2fs_put_page(apage, err ? 1 : 0);
 }
 
+/*
+ * If Metadata encryption enabled, there is no way to check
+ * which pattern the node page is damaged by.
+ * Such as Deadmark, old block, or column corrution.
+ * Therefore, print the on-disk block that skips dm-default-key decryption.
+ */
+static void f2fs_print_lower_node(struct f2fs_sb_info *sbi, struct page *page)
+{
+	int err;
+
+	if (MAJOR(sbi->sb->s_dev) == SCSI_DISK0_MAJOR ||
+			MAJOR(sbi->sb->s_dev) == MMC_BLOCK_MAJOR)
+		return;
+	ClearPageUptodate(page);
+
+	/*
+	 * Handling to PAGE_LOCKED is unnecessary
+	 * because it explicitly clears page uptodate.
+	 */
+	err = read_node_page(page, F2FS_REQ_DEFKEY_BYPASS);
+	if (err < 0)
+		return;
+
+	lock_page(page);
+	if (PageUptodate(page)) {
+		f2fs_warn(sbi, "Print lower nid block");
+		print_block_data(sbi->sb, page->index, page_address(page), 0, F2FS_BLKSIZE);
+	}
+}
 static struct page *__get_node_page(struct f2fs_sb_info *sbi, pgoff_t nid,
 					struct page *parent, int start)
 {
@@ -1399,6 +1432,7 @@ page_hit:
 out_err:
 		if (PageUptodate(page)) {
 			print_block_data(sbi->sb, nid, page_address(page), 0, F2FS_BLKSIZE);
+			f2fs_print_lower_node(sbi, page);
 			f2fs_bug_on(sbi, 1);
 		}
 		ClearPageUptodate(page);
@@ -1960,6 +1994,7 @@ continue_unlock:
 				if (flush_dirty_inode(page))
 					goto lock_node;
 			}
+
 write_node:
 			f2fs_wait_on_page_writeback(page, NODE, true, true);
 

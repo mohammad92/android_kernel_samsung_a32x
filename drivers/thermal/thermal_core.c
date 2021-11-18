@@ -1506,13 +1506,13 @@ static inline void genetlink_exit(void) {}
 #endif /* !CONFIG_NET */
 
 #if IS_ENABLED(CONFIG_SEC_THERMAL_LOG)
+#define BUF_SIZE	SZ_1K
 static void __ref cdev_print(struct work_struct *work)
 {
 	struct thermal_cooling_device *cdev;
 	unsigned long cur_state = 0;
 	int added = 0, ret = 0;
-	char buffer[500] = { 0, };
-	bool is_state = false;
+	char buffer[BUF_SIZE] = { 0, };
 
 	mutex_lock(&thermal_list_lock);
 	list_for_each_entry(cdev, &thermal_cdev_list, node) {
@@ -1520,16 +1520,17 @@ static void __ref cdev_print(struct work_struct *work)
 			cdev->ops->get_cur_state(cdev, &cur_state);
 
 		if (cur_state) {
-			is_state = true;
 			ret = snprintf(buffer + added, sizeof(buffer) - added,
 					   "[%s:%ld]", cdev->type, cur_state);
 			added += ret;
+
+			if (added >= BUF_SIZE)
+				break;
 		}
 	}
 	mutex_unlock(&thermal_list_lock);
 
-	if (is_state)
-		pr_info("thermal: cdev%s\n", buffer);
+	pr_info("thermal: cdev%s\n", buffer);
 
 	schedule_delayed_work(&cdev_print_work, HZ * 5);
 }

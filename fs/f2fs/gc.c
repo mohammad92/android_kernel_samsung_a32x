@@ -1299,10 +1299,14 @@ skip:
 static void f2fs_update_gc_total_time(struct f2fs_sb_info *sbi,
 		unsigned long long start, unsigned long long end, int gc_type)
 {
-	if (!((end - start) / GC_TIME_RECORD_UNIT))
+	unsigned long long gc_time = 0;
+
+	gc_time = end - start;
+	do_div(gc_time, GC_TIME_RECORD_UNIT);
+	if (!gc_time)
 		sbi->sec_stat.gc_ttime[gc_type]++;
 	else
-		sbi->sec_stat.gc_ttime[gc_type] += ((end - start) / GC_TIME_RECORD_UNIT);
+		sbi->sec_stat.gc_ttime[gc_type] += gc_time;
 }
 
 /* @fs.sec -- 83e29a36b9fb739ea211c0c67aefc4c8 -- */

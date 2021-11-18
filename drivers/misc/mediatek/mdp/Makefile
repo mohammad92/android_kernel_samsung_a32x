@@ -51,6 +51,13 @@ else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8167"))
 		-I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(MTK_PLATFORM)
 endif
 
+ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+ifeq ($(CONFIG_TRUSTONIC_TRUSTED_UI),y)
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
+	ccflags-y += -DMDP_CHECK_IN_TUI
+endif
+endif
+endif
 
 # mdp platform code
 MDP_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM)

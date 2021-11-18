@@ -18,6 +18,10 @@
 #include "ccci_fsm_internal.h"
 #include <memory/mediatek/emi.h>
 
+#if defined(CONFIG_MACH_MT6739)
+#include "plat_lastbus.h"
+#endif
+
 #if (MD_GENERATION >= 6297)
 #include <mt-plat/mtk_ccci_common.h>
 #include "modem_secure_base.h"
@@ -287,6 +291,13 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 			count++;
 			msleep(EVENT_POLL_INTEVAL);
 		}
+
+#if defined(CONFIG_MACH_MT6739)
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"No bus timeout!\n");
+		timeout_dump();
+#endif
+
 		fsm_md_exception_stage(&ctl->ee_ctl, 2);
 		break;
 	default:

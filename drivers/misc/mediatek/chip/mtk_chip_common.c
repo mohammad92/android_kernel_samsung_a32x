@@ -130,6 +130,7 @@ static const struct file_operations chip_proc_fops = {
 	.release = single_release,
 };
 
+#ifndef CONFIG_MACH_MT6739
 #ifdef CONFIG_SEC_DEBUG_HW_PARAM
 u64 mtk_get_chip_info_version(void)
 {
@@ -141,6 +142,7 @@ u64 mtk_get_chip_info_version(void)
 	return ver;
 }
 EXPORT_SYMBOL(mtk_get_chip_info_version);
+#endif
 #endif
 
 static void __init create_procfs(void)

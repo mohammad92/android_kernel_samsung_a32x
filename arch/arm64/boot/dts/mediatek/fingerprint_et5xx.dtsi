@@ -29,6 +29,17 @@
 		};
 	};
 };
+#if 0
+&${fps_ldo_vdd_3p3_parent} {
+	btp_ldo_en: btp_ldo_enable {
+		pins_cmd_dat{
+			pinmux = <MTK_PINMUX(SEC_GPIO_NUM(${fps_ldo_vdd_3p3}), 0)>;
+			bias-pull-down;
+			drive-strength = <1>;
+		};
+	};
+};
+#endif
 
 &pio {
 	btp_sleep: btp_sleep_enable {
@@ -102,13 +113,13 @@
 		};
 	};
 };
-
+#if 1
 &mt_pmic_vio28_ldo_reg {
     regulator-name = "VDD_BTP_3P3";
     regulator-min-microvolt = <3300000>;
     regulator-max-microvolt = <3300000>;
 };
-
+#endif
 #if defined(CONFIG_SEC_FACTORY) || !1
 &spi5 {
 	status = "okay";
@@ -129,7 +140,11 @@
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
 #endif
 		pinctrl-names = "default", "pins_poweron", "pins_poweroff", "pins_poweron_tz", "pins_poweroff_tz";
+#if 0
+		pinctrl-0 = <&btp_sleep &btp_irq &btp_ldo_en>;
+#else
 		pinctrl-0 = <&btp_sleep &btp_irq>;
+#endif
 		pinctrl-1 = <&spi5_set_miso &spi5_set_cs &spi5_set_mosi &spi5_set_clk>;
 		pinctrl-2 = <&btp_sleep &spi5_clr_miso &spi5_clr_cs &spi5_clr_mosi &spi5_clr_clk>;
 		pinctrl-3 = <&btp_irq>;

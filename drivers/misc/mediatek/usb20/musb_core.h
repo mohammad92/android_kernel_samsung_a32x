@@ -60,6 +60,10 @@ extern enum charger_type mt_get_charger_type(void);
 #include "mtk_qmu.h"
 #endif
 
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+#include <linux/usb/typec/manager/if_cb_manager.h>
+#endif
+
 #define SHARE_IRQ -1
 
 struct musb;
@@ -539,6 +543,10 @@ struct musb {
 	int rst_err_cnt;
 	bool rst_err_noti;
 	bool event_state;
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+	struct usb_dev	*usb_d;
+	struct if_cb_manager	*man;
+#endif
 };
 
 /* to check usb connection for Android auto */

@@ -215,6 +215,7 @@ enum power_supply_ext_property {
 #endif
 	POWER_SUPPLY_EXT_PROP_SRCCAP,
 	POWER_SUPPLY_EXT_PROP_BUCK_STATE,
+	POWER_SUPPLY_EXT_PROP_MIX_LIMIT,
 };
 
 enum rx_device_type {

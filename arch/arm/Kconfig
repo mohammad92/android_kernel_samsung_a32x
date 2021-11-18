@@ -1664,6 +1664,16 @@ config HIGHMEM
 
 	  If unsure, say n.
 
+config LOWMEM_RESERVE_LESS
+	bool "set lowmem_reserve as half(1/64) of original(1/32)"
+	depends on HIGHMEM
+	default n
+	help
+	  NORMAL zone's lowmem reserve is calculated as
+	  (pgdat->node_zones[ZONE_HIGHMEM]->managed / sysctl_lowmem_reserve_ratio[ZONE_NORMAL])
+	  When this config is enabled, let default lowmem_reserve_ratio as 64
+	  so that we reserve less pages.
+
 config HIGHPTE
 	bool "Allocate 2nd-level pagetables from highmem" if EXPERT
 	depends on HIGHMEM

@@ -22,7 +22,7 @@
 #define DECS_ON_SSPM
 #define MPU_BYPASS
 #define ISU_VER_CTRL
-/* #define ENABLE_MPU_SLVERR */
+#define ENABLE_MPU_SLVERR
 #define DBG_INFO_READY	1
 #define ENABLE_EMI_DEBUG_API
 

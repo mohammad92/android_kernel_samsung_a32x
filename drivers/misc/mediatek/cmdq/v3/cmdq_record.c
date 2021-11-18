@@ -1244,6 +1244,8 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		cmdq_task_set_secure(handle, false);
 		handle->secData.enginesNeedDAPC = 0LL;
 		handle->secData.enginesNeedPortSecurity = 0LL;
+		handle->secData.enginesDisableDAPC = 0LL;
+		handle->secData.enginesDisablePortSecurity = 0LL;
 	}
 
 	/* performance debug begin */
@@ -1325,6 +1327,22 @@ s32 cmdq_task_secure_enable_dapc(struct cmdqRecStruct *handle,
 #endif
 }
 
+s32 cmdq_task_secure_disable_dapc(struct cmdqRecStruct *handle,
+	const uint64_t engineFlag)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (handle == NULL)
+		return -EFAULT;
+
+	handle->secData.enginesDisableDAPC |= engineFlag;
+	return 0;
+#else
+	CMDQ_ERR("%s failed since not support secure path\n", __func__);
+	return -EFAULT;
+#endif
+}
+
+
 s32 cmdq_task_secure_enable_port_security(
 	struct cmdqRecStruct *handle, const u64 engineFlag)
 {
@@ -1333,6 +1351,21 @@ s32 cmdq_task_secure_enable_port_security(
 		return -EFAULT;
 
 	handle->secData.enginesNeedPortSecurity |= engineFlag;
+	return 0;
+#else
+	CMDQ_ERR("%s failed since not support secure path\n", __func__);
+	return -EFAULT;
+#endif
+}
+
+s32 cmdq_task_secure_disable_port_security(struct cmdqRecStruct *handle,
+	const uint64_t engineFlag)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	if (handle == NULL)
+		return -EFAULT;
+
+	handle->secData.enginesDisablePortSecurity |= engineFlag;
 	return 0;
 #else
 	CMDQ_ERR("%s failed since not support secure path\n", __func__);
@@ -3570,10 +3603,21 @@ s32 cmdqRecSecureEnableDAPC(struct cmdqRecStruct *handle, const u64 engineFlag)
 	return cmdq_task_secure_enable_dapc(handle, engineFlag);
 }
 
+int32_t cmdqRecSecureDisableDAPC(struct cmdqRecStruct *handle,
+	const uint64_t engineFlag)
+{
+	return cmdq_task_secure_disable_dapc(handle, engineFlag);
+}
+
 s32 cmdqRecSecureEnablePortSecurity(struct cmdqRecStruct *handle,
 	const u64 engineFlag)
 {
 	return cmdq_task_secure_enable_port_security(handle, engineFlag);
+}
+
+int32_t cmdqRecSecureDisablePortSecurity(struct cmdqRecStruct *handle,	const uint64_t engineFlag)
+{
+	return cmdq_task_secure_disable_port_security(handle, engineFlag);
 }
 
 s32 cmdqRecMark(struct cmdqRecStruct *handle)

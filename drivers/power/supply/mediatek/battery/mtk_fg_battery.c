@@ -644,10 +644,23 @@ static int battery_set_property(struct power_supply *psy,
 #ifdef CONFIG_BATTERY_SAMSUNG
 		if (val->intval == POWER_SUPPLY_STATUS_FULL) {
 			notify_fg_chr_full();
+			gm.is_full = 0;
 			pr_info("%s: Battery Full!\n", __func__);
 		}
 #endif
 		break;
+#ifdef CONFIG_BATTERY_SAMSUNG
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		/* No need to run if SOC is already 100% */
+		if (val->intval == 100)
+			break;
+		if (gm.is_full != 1) {
+			notify_fg_chr_full();
+			gm.is_full = 1;
+			pr_info("%s: Force Battery Full!\n", __func__);
+		}
+		break;
+#endif
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 #ifdef CONFIG_BATTERY_SAMSUNG
 		if (val->intval == SEC_BAT_CHG_MODE_CHARGING) {
@@ -657,6 +670,7 @@ static int battery_set_property(struct power_supply *psy,
 			battery_update(&battery_main);
 		} else {
 			pr_info("%s: Battery Discharging!\n", __func__);
+			gm.is_full = 0;
 			fg_sw_bat_cycle_accu();
 			battery_main.BAT_STATUS =
 				POWER_SUPPLY_STATUS_DISCHARGING;

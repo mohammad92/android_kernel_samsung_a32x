@@ -23,8 +23,8 @@
 #define USBC_CONTROL1		0x7001
 #define USBC_CONTROL2		0x7002
 #define USBC_CONTROL3		0x7003
-#define USBC_PD1_CTRL		0x7004
-#define USBC_PD2_CTRL		0x7005
+#define USBC_CC1_CTRL		0x7004
+#define USBC_CC2_CTRL		0x7005
 #define USBC_STATUS1		0x7007
 #define USBC_STATUS2		0x7008
 #define USBC_STATUS3		0x7009
@@ -43,7 +43,7 @@
 
 #define USBC_CONTROL3_PD_DIS		BIT(1)
 
-#define USBC_PD_CTRL_VCONN_EN		BIT(1)
+#define USBC_CC_CTRL_VCONN_EN		BIT(1)
 
 #define USBC_STATUS1_DET_ONGOING	BIT(6)
 #define USBC_STATUS1_RSLT(r)		((r) & 0xf)
@@ -65,19 +65,19 @@
 #define USBC_IRQ1_OVERTEMP		BIT(1)
 #define USBC_IRQ1_SHORT			BIT(0)
 
-#define USBC_IRQ2_PD_CHANGE		BIT(7)
+#define USBC_IRQ2_CC_CHANGE		BIT(7)
 #define USBC_IRQ2_RX_PD			BIT(6)
 #define USBC_IRQ2_RX_HR			BIT(5)
 #define USBC_IRQ2_RX_CR			BIT(4)
-#define USBC_IRQ2_TX_SUPDESS		BIT(3)
+#define USBC_IRQ2_TX_SUCCESS		BIT(3)
 #define USBC_IRQ2_TX_FAIL		BIT(2)
 
 #define USBC_IRQMASK1_ALL	(USBC_IRQ1_ADCDONE1 | USBC_IRQ1_OVERTEMP | \
 				 USBC_IRQ1_SHORT)
 
-#define USBC_IRQMASK2_ALL	(USBC_IRQ2_PD_CHANGE | USBC_IRQ2_RX_PD | \
+#define USBC_IRQMASK2_ALL	(USBC_IRQ2_CC_CHANGE | USBC_IRQ2_RX_PD | \
 				 USBC_IRQ2_RX_HR | USBC_IRQ2_RX_CR | \
-				 USBC_IRQ2_TX_SUPDESS | USBC_IRQ2_TX_FAIL)
+				 USBC_IRQ2_TX_SUCCESS | USBC_IRQ2_TX_FAIL)
 
 struct wcove_typec {
 	struct mutex lock; /* device lock */
@@ -134,21 +134,21 @@ static irqreturn_t wcove_typec_irq(int irq, void *data)
 	enum typec_role role = TYPEC_SINK;
 	struct typec_partner_desc partner;
 	struct wcove_typec *wcove = data;
-	unsigned int pd1_ctrl;
-	unsigned int pd2_ctrl;
-	unsigned int pd_irq1;
-	unsigned int pd_irq2;
+	unsigned int cc1_ctrl;
+	unsigned int cc2_ctrl;
+	unsigned int cc_irq1;
+	unsigned int cc_irq2;
 	unsigned int status1;
 	unsigned int status2;
 	int ret;
 
 	mutex_lock(&wcove->lock);
 
-	ret = regmap_read(wcove->regmap, USBC_IRQ1, &pd_irq1);
+	ret = regmap_read(wcove->regmap, USBC_IRQ1, &cc_irq1);
 	if (ret)
 		goto err;
 
-	ret = regmap_read(wcove->regmap, USBC_IRQ2, &pd_irq2);
+	ret = regmap_read(wcove->regmap, USBC_IRQ2, &cc_irq2);
 	if (ret)
 		goto err;
 
@@ -160,33 +160,33 @@ static irqreturn_t wcove_typec_irq(int irq, void *data)
 	if (ret)
 		goto err;
 
-	ret = regmap_read(wcove->regmap, USBC_PD1_CTRL, &pd1_ctrl);
+	ret = regmap_read(wcove->regmap, USBC_CC1_CTRL, &cc1_ctrl);
 	if (ret)
 		goto err;
 
-	ret = regmap_read(wcove->regmap, USBC_PD2_CTRL, &pd2_ctrl);
+	ret = regmap_read(wcove->regmap, USBC_CC2_CTRL, &cc2_ctrl);
 	if (ret)
 		goto err;
 
-	if (pd_irq1) {
-		if (pd_irq1 & USBC_IRQ1_OVERTEMP)
+	if (cc_irq1) {
+		if (cc_irq1 & USBC_IRQ1_OVERTEMP)
 			dev_err(wcove->dev, "VCONN Switch Over Temperature!\n");
-		if (pd_irq1 & USBC_IRQ1_SHORT)
+		if (cc_irq1 & USBC_IRQ1_SHORT)
 			dev_err(wcove->dev, "VCONN Switch Short Circuit!\n");
-		ret = regmap_write(wcove->regmap, USBC_IRQ1, pd_irq1);
+		ret = regmap_write(wcove->regmap, USBC_IRQ1, cc_irq1);
 		if (ret)
 			goto err;
 	}
 
-	if (pd_irq2) {
-		ret = regmap_write(wcove->regmap, USBC_IRQ2, pd_irq2);
+	if (cc_irq2) {
+		ret = regmap_write(wcove->regmap, USBC_IRQ2, cc_irq2);
 		if (ret)
 			goto err;
 		/*
 		 * Ignoring any PD communication interrupts until the PD support
 		 * is available
 		 */
-		if (pd_irq2 & ~USBC_IRQ2_PD_CHANGE) {
+		if (cc_irq2 & ~USBC_IRQ2_CC_CHANGE) {
 			dev_WARN(wcove->dev, "USB PD handling missing\n");
 			goto err;
 		}
@@ -270,9 +270,9 @@ static irqreturn_t wcove_typec_irq(int irq, void *data)
 	if (!wcove->partner)
 		dev_err(wcove->dev, "failed register partner\n");
 out:
-	/* If either PD pins is requesting VCONN, we turn it on */
-	if ((pd1_ctrl & USBC_PD_CTRL_VCONN_EN) ||
-	    (pd2_ctrl &	USBC_PD_CTRL_VCONN_EN))
+	/* If either CC pins is requesting VCONN, we turn it on */
+	if ((cc1_ctrl & USBC_CC_CTRL_VCONN_EN) ||
+	    (cc2_ctrl &	USBC_CC_CTRL_VCONN_EN))
 		wcove_typec_func(wcove, WCOVE_FUNC_DRIVE_VCONN, true);
 	else
 		wcove_typec_func(wcove, WCOVE_FUNC_DRIVE_VCONN, false);

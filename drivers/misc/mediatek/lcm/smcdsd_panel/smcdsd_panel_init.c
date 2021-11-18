@@ -81,7 +81,11 @@ static void smcdsd_of_property_read_u32(const struct device_node *np, const char
 int __smcdsd_panel_get_params_from_dt(struct LCM_PARAMS *lcm_params)
 {
 	struct device_node *np = NULL;
+	struct mipi_dsi_lcd_common *plcd = get_lcd_common(0);
 	int ret = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	int i = 0;
+#endif
 
 	np = of_find_recommend_lcd_info(NULL);
 	if (!np) {
@@ -430,8 +434,59 @@ int __smcdsd_panel_get_params_from_dt(struct LCM_PARAMS *lcm_params)
 	smcdsd_of_property_read_u32(np, "lcm_params-od_table",
 		(u32 *) (&lcm_params->od_table));
 
+#if defined(THIS_IS_REDUNDANT_CODE)
 	smcdsd_of_property_read_u32(np, "lcm_params-dsi-data_rate",
 		&lcm_params->dsi.data_rate);
+#endif
+	/* Get MIPI CLK table from DT array */
+	smcdsd_of_property_read_u32(np, "lcm_params-dsi-data_rate", plcd->data_rate);
+	/* First CLK is default CLK */
+	lcm_params->dsi.data_rate = plcd->data_rate[0];
+
+	smcdsd_of_property_read_u32(np, "lcm_params-hbm_enable_wait_frame", &lcm_params->hbm_enable_wait_frame);
+	smcdsd_of_property_read_u32(np, "lcm_params-hbm_disable_wait_frame", &lcm_params->hbm_disable_wait_frame);
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	smcdsd_of_property_read_u32(np, "lcm_params-dfps_enable",
+			&(lcm_params->dsi.dfps_enable));
+	if (lcm_params->dsi.dfps_enable) {
+		smcdsd_of_property_read_u32(np, "lcm_params-fps_cnt",
+				&(lcm_params->dsi.dfps_num));
+		for (i = 0; i < lcm_params->dsi.dfps_num; i++) {
+			of_property_read_u32_index(np, "lcm_params-available_fps",
+				i, &(lcm_params->dsi.dfps_params[i].fps));
+			of_property_read_u32_index(np, "lcm_params-vact_timing_fps",
+				i, &(lcm_params->dsi.dfps_params[i].vact_timing_fps));
+			of_property_read_u32_index(np, "lcm_params-dfps_level",
+				i, &(lcm_params->dsi.dfps_params[i].level));
+			of_property_read_u32_index(np, "lcm_params-dfps_date_rate",
+				i, &(lcm_params->dsi.dfps_params[i].PLL_CLOCK));
+			lcm_params->dsi.dfps_params[i].PLL_CLOCK =
+				lcm_params->dsi.dfps_params[i].PLL_CLOCK >> 1;
+		}
+	}
+	/*
+		default fps is first index, 60hz
+		default vact timing is last index, because biggest value
+	*/
+	lcm_params->dsi.dfps_enable = !!islcmconnected;
+	lcm_params->dsi.dfps_default_fps = lcm_params->dsi.dfps_params[0].fps;
+	lcm_params->dsi.dfps_def_vact_tim_fps= lcm_params->dsi.dfps_params[lcm_params->dsi.dfps_num - 1].vact_timing_fps;
+#if 0
+	pr_info("%s %d %d %d\n", __func__,
+		lcm_params->dsi.dfps_enable, lcm_params->dsi.dfps_default_fps, lcm_params->dsi.dfps_def_vact_tim_fps);
+	pr_info("%s fps : %d %d\n", __func__,
+		lcm_params->dsi.dfps_params[0].fps, lcm_params->dsi.dfps_params[1].fps);
+	pr_info("%s avail vact : %d %d\n", __func__,
+		lcm_params->dsi.dfps_params[0].vact_timing_fps, lcm_params->dsi.dfps_params[1].vact_timing_fps);
+	pr_info("%s dfps level : %d %d\n", __func__,
+		lcm_params->dsi.dfps_params[0].level, lcm_params->dsi.dfps_params[1].level);
+	pr_info("%s PLL clock : %d %d\n", __func__,
+		lcm_params->dsi.dfps_params[0].PLL_CLOCK, lcm_params->dsi.dfps_params[1].PLL_CLOCK);
+#endif
+#endif
+
+	smcdsd_of_property_read_u32(np, "lcd_params-gpara-len", &gpara_len);
 
 	return ret;
 }
@@ -464,7 +519,6 @@ int smcdsd_panel_get_params_from_dt(struct LCM_PARAMS *params)
 /* -------------------------------------------------------------------------- */
 /* helper to find lcd driver */
 /* -------------------------------------------------------------------------- */
-// struct mipi_dsi_lcd_driver *mipi_lcd_driver;
 struct mipi_dsi_lcd_driver *mipi_lcd_driver;
 
 static int __lcd_driver_update_by_lcd_info_name(struct mipi_dsi_lcd_driver *drv)
@@ -525,7 +579,7 @@ static void __lcd_driver_dts_update(void)
 
 	count = of_count_phandle_with_args(nplcd, PANEL_DTS_NAME, NULL);
 	if (count < 2) {
-		dbg_info("%s: %s property phandle count is %d. so no need to update check\n", __func__, PANEL_DTS_NAME, count);
+		/* dbg_info("%s: %s property phandle count is %d. so no need to update check\n", __func__, PANEL_DTS_NAME, count); */
 		return;
 	}
 
@@ -556,7 +610,7 @@ static void __lcd_driver_dts_update(void)
 				dbg_info("%s: %dth dts(%s) id_match. lcdtype(%06X) mask(%06X) expect(%06X)\n",
 					__func__, i, np->name, lcdtype, mask, expect);
 				if (i > 0)
-					ret = of_update_phandle_property(NULL, PANEL_DTS_NAME, np->name);
+					of_update_phandle_property(NULL, PANEL_DTS_NAME, np->name);
 				return;
 			}
 		}
@@ -599,15 +653,17 @@ static int lcd_driver_need_update_dts(const char *driver_name)
 
 static void __lcd_driver_update_by_id_match(void)
 {
-	struct mipi_dsi_lcd_driver **p_lcd_driver = &__start___lcd_driver;
+	struct mipi_dsi_lcd_driver **p, **first;
 	struct mipi_dsi_lcd_driver *lcd_driver = NULL;
 	struct device_node *np = NULL;
 	int i = 0, count = 0, ret = -EINVAL, do_match = 0;
 	unsigned int id_index, mask, expect;
 	u32 id_match_info[10] = {0, };
 
-	for (i = 0, p_lcd_driver = &__start___lcd_driver; p_lcd_driver < &__stop___lcd_driver; p_lcd_driver++, i++) {
-		lcd_driver = *p_lcd_driver;
+	p = first = __start___lcd_driver;
+
+	for (i = 0, p = __start___lcd_driver; p < __stop___lcd_driver; p++, i++) {
+		lcd_driver = *p;
 
 		if (lcd_driver && lcd_driver->driver.name) {
 			np = of_find_node_by_name(NULL, lcd_driver->driver.name);
@@ -618,16 +674,16 @@ static void __lcd_driver_update_by_id_match(void)
 		}
 	}
 
-	if (!do_match) {
-		pr_info("%s do match 0\n", __func__, i);
+	if (!do_match)
 		return;
+
+	if (i != do_match) {
+		lcd_driver = *first;
+		of_update_phandle_property(NULL, PANEL_DTS_NAME, lcd_driver->driver.name);
 	}
 
-	if (i != do_match)
-		of_update_phandle_property(NULL, PANEL_DTS_NAME, __start___lcd_driver->driver.name);
-
-	for (i = 0, p_lcd_driver = &__start___lcd_driver; p_lcd_driver < &__stop___lcd_driver; p_lcd_driver++, i++) {
-		lcd_driver = *p_lcd_driver;
+	for (i = 0, p = __start___lcd_driver; p < __stop___lcd_driver; p++, i++) {
+		lcd_driver = *p;
 
 		if (!lcd_driver_is_valid(lcd_driver)) {
 			dbg_info("%dth lcd_driver is invalid\n", i);
@@ -661,8 +717,7 @@ static void __lcd_driver_update_by_id_match(void)
 				dbg_info("%s: %dth lcd_driver(%s) id_match. lcdtype(%06X) mask(%06X) expect(%06X)\n",
 					__func__, i, lcd_driver->driver.name, lcdtype, mask, expect);
 
-				if (mipi_lcd_driver != lcd_driver)
-					mipi_lcd_driver = lcd_driver;
+				mipi_lcd_driver = lcd_driver;
 
 				if (lcd_driver_need_update_dts(lcd_driver->driver.name))
 					of_update_phandle_property(NULL, PANEL_DTS_NAME, lcd_driver->driver.name);
@@ -675,48 +730,42 @@ static void __lcd_driver_update_by_id_match(void)
 
 static void __lcd_driver_update_by_function(void)
 {
-	struct mipi_dsi_lcd_driver **p_lcd_driver = &__start___lcd_driver;
+	struct mipi_dsi_lcd_driver **p, **first;
 	struct mipi_dsi_lcd_driver *lcd_driver = NULL;
 	int i = 0, ret = -EINVAL, do_match = 0;
-	pr_info("%s 1\n", __func__);
 
-	for (i = 0, p_lcd_driver = &__start___lcd_driver; p_lcd_driver < &__stop___lcd_driver; p_lcd_driver++, i++) {
-		lcd_driver = *p_lcd_driver;
+	p = first = __start___lcd_driver;
+
+	for (i = 0, p = __start___lcd_driver; p < __stop___lcd_driver; p++, i++) {
+		lcd_driver = *p;
 
 		if (lcd_driver && lcd_driver->match) {
 			dbg_info("%s: %dth lcd_driver %s and has driver match function\n", __func__, i, lcd_driver->driver.name);
 			do_match++;
-		} else {
-			if (!lcd_driver)
-				pr_info("%s driver is null %d\n", __func__, i);
-			if (!lcd_driver->driver.name)
-				pr_info("%s driver name is null %d\n", __func__, i);
 		}
 	}
 
 	if (!do_match)
 		return;
 
-	if (i != do_match)
-		of_update_phandle_property(NULL, PANEL_DTS_NAME, __start___lcd_driver->driver.name);
+	if (i != do_match) {
+		lcd_driver = *first;
+		of_update_phandle_property(NULL, PANEL_DTS_NAME, lcd_driver->driver.name);
+	}
 
-	for (i = 0, p_lcd_driver = &__start___lcd_driver; p_lcd_driver < &__stop___lcd_driver; p_lcd_driver++, i++) {
-		lcd_driver = *p_lcd_driver;
+	for (i = 0, p = __start___lcd_driver; p < __stop___lcd_driver; p++, i++) {
+		lcd_driver = *p;
 
 		if (!lcd_driver_is_valid(lcd_driver)) {
 			dbg_info("%dth lcd_driver is invalid\n", i);
 			continue;
 		}
 
-		if (!lcd_driver->driver.name)
-			continue;
-
 		ret = lcd_driver->match(NULL);
 		if (ret & NOTIFY_OK) {
 			dbg_info("%s: %dth lcd_driver(%s) NOTIFY_OK(%04X)\n", __func__, i, lcd_driver->driver.name, ret);
 
-			if (mipi_lcd_driver != lcd_driver)
-				mipi_lcd_driver = lcd_driver;
+			mipi_lcd_driver = lcd_driver;
 
 			if (lcd_driver_need_update_dts(lcd_driver->driver.name))
 				of_update_phandle_property(NULL, PANEL_DTS_NAME, lcd_driver->driver.name);
@@ -733,44 +782,42 @@ static void __lcd_driver_update_by_function(void)
 
 int lcd_driver_init(void)
 {
-	struct mipi_dsi_lcd_driver **p_lcd_driver = &__start___lcd_driver;
+	struct mipi_dsi_lcd_driver **p, **first;
 	struct mipi_dsi_lcd_driver *lcd_driver = NULL;
-	int i = 0, ret = -EINVAL;
+	int i = 0;
+	unsigned long count;
+
+	p = first = __start___lcd_driver;
 
 	__lcd_driver_dts_update();
 
 	if (mipi_lcd_driver && mipi_lcd_driver->driver.name) {
-		dbg_info("%s: %s driver is registered\n", __func__, mipi_lcd_driver->driver.name);
+		dbg_info("%s: %s driver is already registered\n", __func__, mipi_lcd_driver->driver.name);
 		return 0;
 	}
-	pr_info("%s 1\n", __func__);
-	if (++p_lcd_driver == &__stop___lcd_driver) {
-		dbg_info("%s: lcd_driver is only one\n", __func__);
-		mipi_lcd_driver = __start___lcd_driver;
+
+	count = __stop___lcd_driver - __start___lcd_driver;
+	if (count <= 1) {
+		mipi_lcd_driver = *first;
 		return 0;
 	}
-	pr_info("%s 2\n", __func__);
 
 	__lcd_driver_update_by_id_match();
-	pr_info("%s 3\n", __func__);
 	__lcd_driver_update_by_function();
-	pr_info("%s 4\n", __func__);
 
-	for (i = 0, p_lcd_driver = &__start___lcd_driver; p_lcd_driver < &__stop___lcd_driver; p_lcd_driver++, i++) {
-		lcd_driver = *p_lcd_driver;
+	for (i = 0, p = __start___lcd_driver; p < __stop___lcd_driver; p++, i++) {
+		lcd_driver = *p;
 
-		if (!lcd_driver || !lcd_driver->driver.name) {
-			pr_info("%s %d\n", __func__, i);
+		if (!lcd_driver_is_valid(lcd_driver))
 			continue;
-		}
 
 		dbg_info("%s: %dth lcd_driver is %s\n", __func__, i, lcd_driver->driver.name);
-		ret = __lcd_driver_update_by_lcd_info_name(lcd_driver);
+
+		__lcd_driver_update_by_lcd_info_name(lcd_driver);
 	}
-	pr_info("%s 5\n", __func__);
+
 	WARN_ON(!mipi_lcd_driver);
-	pr_info("%s 6\n", __func__);
-	mipi_lcd_driver = mipi_lcd_driver ? mipi_lcd_driver : __start___lcd_driver;
+	mipi_lcd_driver = mipi_lcd_driver ? mipi_lcd_driver : *first;
 
 	dbg_info("%s: %s driver is registered\n", __func__, mipi_lcd_driver->driver.name ? mipi_lcd_driver->driver.name : "null");
 

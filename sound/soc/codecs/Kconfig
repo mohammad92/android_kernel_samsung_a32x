@@ -135,6 +135,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SIRF_AUDIO_CODEC
+	select SND_SOC_AW8896 if I2C
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
 	select SND_SOC_SPDIF
 	select SND_SOC_SSM2518 if I2C
@@ -1187,6 +1188,12 @@ config SND_RICHTEK_SPM
 	  This is a IPC Command for audio dsp and amp driver.
 	  Enable it, driver can get hifi3 data.
 	  Disable it, driver cannot get hifi3 data.
+
+config SND_SOC_AW8896
+	tristate "SoC Audio for awinic aw8896 series"
+	depends on I2C
+	help
+		This option enables support for aw8896 series Smart PA.
 
 config SND_SOC_SMA1303
 	tristate "Silicon Mitus SMA1303 speaker amplifier"

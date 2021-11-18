@@ -48,6 +48,7 @@
 
 #include "kd_imgsensor_define.h"
 #include "kd_imgsensor_errcode.h"
+#include "kd_imgsensor_sysfs_adapter.h"
 
 #include "imgsensor_sysfs.h"
 
@@ -419,6 +420,8 @@ static void set_dummy(void)
 	pr_debug("dummyline = %d, dummypixels = %d\n",
 		imgsensor.dummy_line, imgsensor.dummy_pixel);
 
+	write_cmos_sensor_8(0x702, 0); // FLL Lshift reset
+	write_cmos_sensor_8(0x704, 0); // CIT Lshift reset
 	write_cmos_sensor(0x0340, imgsensor.frame_length);
 	write_cmos_sensor(0x0342, imgsensor.line_length);
 }
@@ -614,14 +617,13 @@ static void write_shutter(kal_uint32 shutter)
 
 		frame_length_lines = (kal_uint32)((vt_pic_clk_freq_mhz * target_frame_duration) / line_length_pck);
 		imgsensor.frame_length = frame_length_lines;
-		imgsensor.frame_length_shifter = cit_lshift_count;
 
 		shutter = ((target_exp * vt_pic_clk_freq_mhz) - min_fine_int) / line_length_pck;
 		if (shutter > max_coarse_integration_time)
 			shutter = max_coarse_integration_time;
 
 		write_cmos_sensor(0x0340, imgsensor.frame_length & 0xFFFF);
-		write_cmos_sensor_8(0x702, cit_lshift_count & 0xFF); // FLL_Lshift addr
+		write_cmos_sensor_8(0x702, cit_lshift_count & 0xFF); // FLL Lshift addr
 		write_cmos_sensor_8(0x704, cit_lshift_count & 0xFF); // CIT Lshift addr
 	} else {
 		if (imgsensor.autoflicker_en) {
@@ -632,15 +634,15 @@ static void write_shutter(kal_uint32 shutter)
 				set_max_framerate(296, 0);
 			else if (realtime_fps >= 147 && realtime_fps <= 150)
 				set_max_framerate(146, 0);
-			else
+			else {
 				write_cmos_sensor(0x0340, imgsensor.frame_length & 0xFFFF);
+				write_cmos_sensor_8(0x702, 0); // FLL Lshift reset
+				write_cmos_sensor_8(0x704, 0); // CIT Lshift reset
+			}
 		} else {
 			write_cmos_sensor(0x0340, imgsensor.frame_length & 0xFFFF);
-		}
-		if (imgsensor.frame_length_shifter > 0) {
-			imgsensor.frame_length_shifter = 0;
-			write_cmos_sensor_8(0x702, 0); // FLL_Lshift addr
-			write_cmos_sensor_8(0x704, 0); // CIT Lshift addr
+			write_cmos_sensor_8(0x702, 0); // FLL Lshift reset
+			write_cmos_sensor_8(0x704, 0); // CIT Lshift reset
 		}
 	}
 	write_cmos_sensor(0x0202, shutter & 0xFFFF);
@@ -3076,9 +3078,6 @@ static void sensor_init(void)
 }
 
 #if WRITE_SENSOR_CAL_FOR_GGC
-extern int imgsensor_get_cal_buf_by_sensor_idx(int sensor_idx, char **buf);
-
-
 #define SENSOR_GM2_GGC_CAL_BASE_REAR           (0x2246)
 #define SENSOR_GM2_GGC_CAL_SIZE                (92)
 #define SENSOR_GM2_GGC_REG_ADDR                (0x39DA)
@@ -3097,8 +3096,8 @@ static void sensor_GGC_write(void)
 
 	LOG_INF("%s", __func__);
 
-	if (imgsensor_get_cal_buf_by_sensor_idx(sensor_dev_id, &rom_cal_buf)) {
-		pr_err("%s : cal data is NULL", __func__);
+	if (IMGSENSOR_GET_CAL_BUF_BY_SENSOR_IDX(sensor_dev_id, &rom_cal_buf)) {
+		pr_err("%s : cal data is NULL, sensor_dev_id: %d", __func__, sensor_dev_id);
 		return;
 	}
 	rom_cal_buf += SENSOR_GM2_GGC_CAL_BASE_REAR;
@@ -4218,7 +4217,6 @@ static kal_uint32 open(void)
 	imgsensor.ihdr_mode			= 0;
 	imgsensor.test_pattern		= KAL_FALSE;
 	imgsensor.current_fps		= imgsensor_info.pre.max_framerate;
-	imgsensor.frame_length_shifter = 0;
 	spin_unlock(&imgsensor_drv_lock);
 
 	return ERROR_NONE;
@@ -4245,6 +4243,8 @@ static kal_uint32 open(void)
 static kal_uint32 close(void)
 {
 	LOG_INF("close() E\n");
+
+	sIsNightHyperlapse = KAL_FALSE;
 
 	return ERROR_NONE;
 }

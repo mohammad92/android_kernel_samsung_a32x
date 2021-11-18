@@ -530,6 +530,7 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 {
 	struct BSS_INFO *prAisBssInfo;
 	struct BSS_DESC *target;
+	uint8_t ucTest = 0;
 
 #if CFG_SUPPORT_MBO
 	struct PARAM_BSS_DISALLOWED_LIST *disallow;
@@ -575,6 +576,29 @@ static u_int8_t scanSanityCheckBssDesc(struct ADAPTER *prAdapter,
 			return FALSE;
 		}
 	}
+
+	/* BTO case */
+	if (prBssDesc->fgIsInBTO) {
+		log_dbg(SCN, WARN, MACSTR " is in BTO.\n",
+			MAC2STR(prBssDesc->aucBSSID));
+		ucTest = TRUE;
+	}
+
+	if (target &&
+	    prAisBssInfo->eConnectionState == MEDIA_STATE_DISCONNECTED &&
+            aisFsmIsInProcessPostpone(prAdapter, ucBssIndex)) {
+		log_dbg(SCN, WARN, MACSTR "0x%x, target="MACSTR" 0x%x\n",
+			MAC2STR(prBssDesc->aucBSSID),
+			prBssDesc,
+			MAC2STR(target->aucBSSID),
+			target);
+		if (EQUAL_MAC_ADDR(target->aucBSSID, prBssDesc->aucBSSID)) {
+			log_dbg(SCN, WARN, "Select BTO AP?\n");
+			ucTest = TRUE;
+		}
+	}
+	if (ucTest)
+		return FALSE;
 
 	/* roaming case */
 	if (target &&

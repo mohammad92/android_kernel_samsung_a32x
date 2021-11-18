@@ -68,13 +68,11 @@ obj-$(CONFIG_MTPROF)	+= mtprof/
 obj-$(CONFIG_MEDIATEK_SOLUTION) += sched/
 obj-$(CONFIG_MTK_FREQ_HOPPING) += freqhopping/
 obj-$(CONFIG_MTK_GPU_SUPPORT) += gpu/
-ifneq ($(filter a31%, $(TARGET_PRODUCT)),)
-else
 obj-y += cameraisp/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
 obj-$(CONFIG_MTK_CAM_CAL) += cam_cal/src/
+obj-$(CONFIG_CAMERA_OIS) += cam_ois/src/
 obj-$(CONFIG_MTK_LENS)   += lens/
-endif
 obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_MTK_VPU_SUPPORT) += vpu/

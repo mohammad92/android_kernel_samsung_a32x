@@ -28,6 +28,7 @@
 #ifdef CONFIG_IFCONN_NOTIFIER
 #include <linux/ifconn/ifconn_notifier.h>
 #endif
+#include <linux/muic/common/muic_param.h>
 
 #define MUIC_CORE "MUIC_CORE"
 /* Status of IF PMIC chip (suspend and resume) */
@@ -69,13 +70,6 @@ enum {
 	MUIC_PATH_OPEN,
 	MUIC_PATH_AUDIO,
 };
-
-#ifdef CONFIG_MUIC_HV_FORCE_LIMIT
-enum {
-	HV_9V = 0,
-	HV_5V,
-};
-#endif
 
 /* bootparam SWITCH_SEL */
 enum {
@@ -243,7 +237,6 @@ typedef enum {
 } muic_silent_change_state_t;
 #endif
 
-#if defined(CONFIG_MUIC_HV)
 /* MUIC HV State type */
 typedef enum {
 	HV_STATE_INVALID = -1,
@@ -262,25 +255,56 @@ typedef enum {
 typedef enum {
 	HV_TRANS_INVALID = -1,
 	HV_TRANS_MUIC_DETACH = 0,
-	HV_TRANS_DCP_DETECTED = 1,
-	HV_TRANS_NO_RESPONSE = 2,
-	HV_TRANS_VDNMON_LOW = 3,
-	HV_TRANS_FAST_CHARGE_PING_RESPONSE = 4,
-	HV_TRANS_VBUS_BOOST = 5,
-	HV_TRANS_VBUS_REDUCE = 6,
-	HV_TRANS_MAX_NUM = 7,
+	HV_TRANS_DCP_DETECTED,
+	HV_TRANS_NO_RESPONSE,
+	HV_TRANS_VDNMON_LOW,
+	HV_TRANS_FAST_CHARGE_PING_RESPONSE,
+	HV_TRANS_AFC_TA_DETECTED,
+	HV_TRANS_QC_TA_DETECTED,
+	HV_TRANS_VBUS_5V_BOOST,
+	HV_TRANS_VBUS_BOOST,
+	HV_TRANS_VBUS_REDUCE,
+	HV_TRANS_VBUS_UPDATE,
+	HV_TRANS_FAST_CHARGE_REOPEN,
+	HV_TRANS_MAX_NUM,
 } muic_hv_transaction_t;
-#endif
 
+typedef enum {
+	HV_9V = 0,
+	HV_5V,
+} muic_hv_voltage_t;
+
+#ifdef CONFIG_MUIC_COMMON_SYSFS
+struct muic_sysfs_cb {
+	int (*set_uart_en)(void *data, int en);
+	void (*set_uart_sel)(void *data);
+	int (*get_usb_en)(void *data);
+	int (*set_usb_en)(void *data, int en);
+	int (*get_adc)(void *data);
+	int (*get_mansw)(void *data, char *mesg);
+	int (*get_interrupt_status)(void *data, char *mesg);
+	int (*get_register)(void *data, char *mesg);
+	int (*get_attached_dev)(void *data);
+	int (*get_otg_test)(void *data);
+	int (*set_otg_test)(void *data, int en);
+	void (*set_audio_path)(void *data);
+	void (*set_apo_factory)(void *data);
+	int (*get_vbus_value)(void *data);
+	void (*set_afc_disable)(void *data);
+	int (*afc_set_voltage)(void *data, int vol);
+	int (*get_hiccup)(void *data);
+	int (*set_hiccup)(void *data, int en);
+};
+#endif
 /* muic common callback driver internal data structure
  * that setted at muic-core.c file
  */
 struct muic_platform_data {
-	void *drv_data;
-	void *muic_if;
-	int irq_gpio;
-	bool suspended;
-	bool need_to_noti;
+#ifdef CONFIG_MUIC_COMMON_SYSFS
+	struct device *switch_device;
+	struct mutex sysfs_mutex;
+	struct muic_sysfs_cb sysfs_cb;
+#endif
 
 	int switch_sel;
 
@@ -288,48 +312,17 @@ struct muic_platform_data {
 	int usb_path;
 	int uart_path;
 
-	int gpio_uart_sel;
-	int gpio_usb_sel;
-
 	bool rustproof_on;
 	bool afc_disable;
-	bool is_new_factory;
-	bool dcd_timeout;
-	int afc_disabled_updated;
 
-#ifdef CONFIG_MUIC_HV_FORCE_LIMIT
-	int hv_sel;
-	int silent_chg_change_state;
-#endif
+	int afc_disabled_updated;
 
 	enum muic_op_mode opmode;
 
-#ifdef CONFIG_MUIC_SYSFS
-	struct device *switch_device;
-	struct mutex sysfs_mutex;
-#endif
-
-#if defined(CONFIG_MUIC_HV)
-	muic_hv_state_t hv_state;
-#endif
-
-	/* muic current attached device */
-	muic_attached_dev_t	attached_dev;
-
-	bool is_usb_ready;
-	bool is_factory_start;
-	bool is_rustproof;
-	bool is_otg_test;
-
-	bool is_jig_on;
-	bool jig_disable;
-	bool is_factory_uart;
-
 	int vbvolt;
 	int adc;
-#if defined(CONFIG_NOVBUS_MUIC)
-	int usb_en_gpio;
-#endif
+
+	bool is_factory_start;
 
 	/* muic switch dev register function for DockObserver */
 	void (*init_switch_dev_cb) (void);
@@ -343,19 +336,18 @@ struct muic_platform_data {
 #else
 	int (*init_gpio_cb)(void);
 #endif
-	int (*set_gpio_usb_sel) (int usb_path);
-	int (*set_gpio_uart_sel) (int uart_path);
+	int (*set_gpio_usb_sel)(void *data, int usb_path);
+	int (*set_gpio_uart_sel)(void *data, int uart_path);
 	int (*set_safeout) (int safeout_path);
-
-	/* muic path switch function for rustproof */
-	void (*set_path_switch_suspend) (struct device *dev);
-	void (*set_path_switch_resume) (struct device *dev);
 
 	/* muic cable data collecting function */
 	void (*init_cable_data_collect_cb)(void);
 
 	/* muic AFC voltage switching function */
 	int (*muic_afc_set_voltage_cb)(int voltage);
+
+	/* muic AFC get voltage function */
+	int (*muic_afc_get_voltage_cb)(void);
 
 	/* muic hv charger disable function */
 	int (*muic_hv_charger_disable_cb)(bool en);
@@ -366,6 +358,7 @@ struct muic_platform_data {
 	/* muic set hiccup mode function */
 	int (*muic_set_hiccup_mode_cb)(int on_off);
 
+	void *drv_data;
 };
 
 #define MUIC_PDATA_VOID_FUNC(func, param) \
@@ -376,9 +369,17 @@ struct muic_platform_data {
 		pr_err("[muic_core] func not defined %s\n", __func__);	\
 }
 
+#define MUIC_PDATA_VOID_FUNC_MULTI_PARAM(func, param1, param2) \
+{\
+	if (func)	\
+		func(param1, param2);	\
+	else	\
+		pr_err("[muic_core] func not defined %s\n", __func__);	\
+}
+
 #define MUIC_PDATA_FUNC(func, param, ret) \
 {\
-	*ret = -1;	\
+	*ret = 0;	\
 	if (func)	\
 		*ret = func(param);	\
 	else	\
@@ -387,7 +388,7 @@ struct muic_platform_data {
 
 #define MUIC_PDATA_FUNC_MULTI_PARAM(func, param1, param2, ret) \
 {					\
-	*ret = -1;	\
+	*ret = 0;	\
 	if (func)	\
 		*ret = func(param1, param2);	\
 	else	\
@@ -413,10 +414,6 @@ enum muic_param_en {
 #define MASK_6b (0x3f)
 #define MASK_7b (0x7f)
 #define MASK_8b (0xff)
-
-#if defined(CONFIG_MUIC_HV)
-#define IS_VCHGIN_9V(x) ((8000 <= x) && (x <= 10300))
-#define IS_VCHGIN_5V(x) ((4000 <= x) && (x <= 6000))
 
 #define AFC_MRXRDY_CNT_LIMIT (3)
 #define AFC_MPING_RETRY_CNT_LIMIT (20)
@@ -471,7 +468,6 @@ typedef enum tx_data{
     MUIC_HV_5V = 0,
     MUIC_HV_9V,
 } muic_afc_txdata_t;
-#endif
 
 #ifdef CONFIG_IFCONN_NOTIFIER
 #define MUIC_SEND_NOTI_ATTACH(dev) \
@@ -587,31 +583,23 @@ typedef enum tx_data{
 		muic_pdic_notifier_detach_attached_dev(dev)
 #endif
 
-extern int get_switch_sel(void);
-extern int get_pdic_info(void);
-extern int get_afc_mode(void);
-int muic_set_hiccup_mode(int on_off);
-int muic_hv_charger_init(void);
-
+#if IS_ENABLED(CONFIG_MUIC_NOTIFIER)
+extern int muic_set_hiccup_mode(int on_off);
+extern int muic_hv_charger_init(void);
+extern int muic_afc_get_voltage(void);
 #if !defined(CONFIG_DISCRETE_CHARGER)
 extern int muic_afc_set_voltage(int voltage);
 #endif
-void muic_set_hmt_status(int status);
-int muic_core_handle_attach(struct muic_platform_data *muic_pdata,
-			muic_attached_dev_t new_dev, int adc, u8 vbvolt);
-int muic_core_handle_detach(struct muic_platform_data *muic_pdata);
-bool muic_core_get_pdic_cable_state(struct muic_platform_data *muic_pdata);
-struct muic_platform_data *muic_core_init(void *drv_data);
-void muic_core_exit(struct muic_platform_data *muic_pdata);
-extern void muic_disable_otg_detect(void);
-#if defined(CONFIG_MUIC_HV)
-int muic_core_hv_state_manager(struct muic_platform_data *muic_pdata,
-		muic_hv_transaction_t trans);
-void muic_core_hv_init(struct muic_platform_data *muic_pdata);
-bool muic_core_hv_is_hv_dev(struct muic_platform_data *muic_pdata);
-#endif
 extern int muic_hv_charger_disable(bool en);
-#ifdef CONFIG_SEC_FACTORY
-extern void muic_send_attached_muic_cable_intent(int type);
-#endif /* CONFIG_SEC_FACTORY */
+
+#else
+static inline int muic_set_hiccup_mode(int on_off) {return 0; }
+static inline int muic_hv_charger_init(void) {return 0; }
+static inline int muic_afc_get_voltage(void) {return 0; }
+#if !defined(CONFIG_DISCRETE_CHARGER)
+static inline int muic_afc_set_voltage(int voltage) {return 0; }
+#endif
+static inline int muic_hv_charger_disable(bool en) {return 0; }
+#endif
+
 #endif /* __MUIC_H__ */

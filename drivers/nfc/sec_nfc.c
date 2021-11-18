@@ -19,7 +19,8 @@
  * along with this program;
  *
  */
-#define pr_fmt(fmt)     "[sec_nfc] %s: " fmt, __func__
+
+/* duplicated #define pr_fmt(fmt)     "[sec_nfc] %s: " fmt, __func__*/
 
 #include <linux/wait.h>
 #include <linux/delay.h>
@@ -98,9 +99,9 @@ struct mutex coldreset_mutex;
 u8 disable_combo_reset_cmd[4] = { 0x2F, 0x30, 0x01, 0x00};
 #endif
 
+static struct sec_nfc_info *g_nfc_info;
 #define FEATURE_SEC_NFC_TEST
 #ifdef FEATURE_SEC_NFC_TEST
-static struct sec_nfc_info *g_nfc_info;
 static bool on_nfc_test;
 static bool nfc_int_wait;
 #endif
@@ -160,10 +161,16 @@ static int nfc_state_print(struct sec_nfc_info *info)
 		pvdd = gpio_get_value(info->pdata->pvdd);
 	}
 
-	NFC_LOG_INFO("%s en: %d, firm: %d power: %d irq: %d\n", __func__, en, firm, pvdd, irq);
-	NFC_LOG_INFO("%s mode %d, clk_state: %d\n", __func__, info->mode, info->clk_state);
+	NFC_LOG_INFO("en(%d) firm(%d) pvdd(%d) irq(%d) mode(%d) clk_state(%d)\n",
+			en, firm, pvdd, irq, info->mode, info->clk_state);
 
 	return 0;
+}
+
+void sec_nfc_print_status(void)
+{
+	if (g_nfc_info)
+		nfc_state_print(g_nfc_info);
 }
 
 static ssize_t sec_nfc_read(struct file *file, char __user *buf,
@@ -547,10 +554,37 @@ void sec_nfc_clk_ctl_disable(struct sec_nfc_info *info)
 	info->clk_ctl = false;
 }
 
+static bool sec_nfc_check_pin_status(struct sec_nfc_platform_data *pdata,
+					enum sec_nfc_mode mode)
+{
+	if (mode != SEC_NFC_MODE_OFF) {
+		if (pdata->ven) {
+			if (gpio_get_value(pdata->ven) != SEC_NFC_PW_ON)
+				return false;
+		}
+	}
+
+	if (mode == SEC_NFC_MODE_BOOTLOADER) {
+		if (pdata->firm) {
+			if (gpio_get_value(pdata->firm) != SEC_NFC_FW_ON)
+				return false;
+
+		}
+	} else {
+		if (pdata->firm) {
+			if (gpio_get_value(pdata->firm) != SEC_NFC_FW_OFF)
+				return false;
+		}
+	}
+
+	return true;
+}
+
 static void sec_nfc_set_mode(struct sec_nfc_info *info,
 					enum sec_nfc_mode mode)
 {
 	struct sec_nfc_platform_data *pdata = info->pdata;
+	int retry_count = 3;
 #ifdef CONFIG_ESE_COLDRESET
 	int alreadFirmHigh = 0;
 	int ret;
@@ -600,20 +634,30 @@ static void sec_nfc_set_mode(struct sec_nfc_info *info,
 	NFC_LOG_INFO("FIRMWARE_GUARD_TIME(+1ms) in PW_OFF(total:4ms)\n");
 #endif
 
-	gpio_set_value(pdata->ven, SEC_NFC_PW_OFF);
+pin_setting_retry:
+	gpio_direction_output(pdata->ven, SEC_NFC_PW_OFF);
 	if (pdata->firm)
-		gpio_set_value(pdata->firm, SEC_NFC_FW_OFF);
+		gpio_direction_output(pdata->firm, SEC_NFC_FW_OFF);
 
 	if (mode == SEC_NFC_MODE_BOOTLOADER)
 		if (pdata->firm)
-			gpio_set_value(pdata->firm, SEC_NFC_FW_ON);
+			gpio_direction_output(pdata->firm, SEC_NFC_FW_ON);
 
 	if (mode != SEC_NFC_MODE_OFF) {
 		msleep(SEC_NFC_VEN_WAIT_TIME);
-		gpio_set_value(pdata->ven, SEC_NFC_PW_ON);
+		gpio_direction_output(pdata->ven, SEC_NFC_PW_ON);
 		sec_nfc_clk_ctl_enable(info);
+		nfc_state_print(info);
 		enable_irq_wake(info->i2c_info.i2c_dev->irq);
 		msleep(SEC_NFC_VEN_WAIT_TIME/2);
+
+		/* Workaround: FIRM or VEN is not set sometimes */
+		if (retry_count-- > 0 && !sec_nfc_check_pin_status(pdata, mode)) {
+			NFC_LOG_INFO("Pin setting retry\n");
+			sec_nfc_clk_ctl_disable(info);
+			disable_irq_wake(info->i2c_info.i2c_dev->irq);
+			goto pin_setting_retry;
+		}
 	} else {
 #ifdef CONFIG_ESE_COLDRESET
 		int PW_OFF_DURATION = 20;
@@ -629,6 +673,7 @@ static void sec_nfc_set_mode(struct sec_nfc_info *info,
 		NFC_LOG_INFO("DeepStby: enter DeepStby(PW_ON)\n");
 #endif
 		sec_nfc_clk_ctl_disable(info);
+		nfc_state_print(info);
 		disable_irq_wake(info->i2c_info.i2c_dev->irq);
 	}
 
@@ -1241,8 +1286,8 @@ static int __sec_nfc_probe(struct device *dev)
 	gpio_direction_output(pdata->coldreset, SEC_NFC_COLDRESET_OFF);
 #endif
 
-#ifdef FEATURE_SEC_NFC_TEST
 	g_nfc_info = info;
+#ifdef FEATURE_SEC_NFC_TEST
 	nfc_class = class_create(THIS_MODULE, "nfc_test");
 	if (IS_ERR(&nfc_class))
 		NFC_LOG_ERR("NFC: failed to create nfc_test class\n");
@@ -1260,6 +1305,8 @@ static int __sec_nfc_probe(struct device *dev)
 		if (ret)
 			NFC_LOG_ERR("NFC: failed to create attr_nfc_support\n");
 	}
+
+	nfc_logger_register_nfc_stauts_func(sec_nfc_print_status);
 
 	NFC_LOG_INFO("probe() success\n");
 
@@ -1308,7 +1355,6 @@ static int __sec_nfc_remove(struct device *dev)
 	return 0;
 }
 
-MODULE_DEVICE_TABLE(i2c, sec_nfc_id_table);
 #define SEC_NFC_INIT(driver)	i2c_add_driver(driver)
 #define SEC_NFC_EXIT(driver)	i2c_del_driver(driver)
 
@@ -1338,6 +1384,7 @@ static struct i2c_device_id sec_nfc_id_table[] = {
 	{ SEC_NFC_DRIVER_NAME, 0 },
 	{ }
 };
+MODULE_DEVICE_TABLE(i2c, sec_nfc_id_table);
 
 static const struct of_device_id nfc_match_table[] = {
 	{ .compatible = SEC_NFC_DRIVER_NAME,},
@@ -1358,6 +1405,26 @@ static struct i2c_driver sec_nfc_driver = {
 	},
 };
 
+#if IS_MODULE(CONFIG_SAMSUNG_NFC)
+extern int spip3_dev_init(void);
+extern void spip3_dev_exit(void);
+
+static int __init sec_nfc_init(void)
+{
+#if IS_ENABLED(CONFIG_ESE_P3_LSI)
+	ret = spip3_dev_init();
+#endif
+	return SEC_NFC_INIT(&sec_nfc_driver);
+}
+
+static void __exit sec_nfc_exit(void)
+{
+#if IS_ENABLED(CONFIG_ESE_P3_LSI)
+	spip3_dev_exit();
+#endif
+	SEC_NFC_EXIT(&sec_nfc_driver);
+}
+#else
 static int __init sec_nfc_init(void)
 {
 	return SEC_NFC_INIT(&sec_nfc_driver);
@@ -1367,6 +1434,7 @@ static void __exit sec_nfc_exit(void)
 {
 	SEC_NFC_EXIT(&sec_nfc_driver);
 }
+#endif
 
 module_init(sec_nfc_init);
 module_exit(sec_nfc_exit);

@@ -2552,6 +2552,12 @@ void s5k3l6_select_otp_page(unsigned int page)
 	usleep_range(100, 100);
 }
 
+void s5k3l6_otp_off_setting()
+{
+	write_cmos_sensor_8(0x0A00, 0x04);
+	write_cmos_sensor_8(0x0A00, 0x00);
+}
+
 int s5k3l6_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int size)
 {
 	int i, otp_addr, otp_page, bank;
@@ -2564,6 +2570,7 @@ int s5k3l6_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int siz
 	bank = read_cmos_sensor_8(PAGE_START_ADDR);
 	if (bank > 4) {
 		pr_err("[%s] Invalid bank data %d", __func__, bank);
+		s5k3l6_otp_off_setting();
 		return -1;
 	}
 	otp_page = bank_page[bank];
@@ -2577,8 +2584,7 @@ int s5k3l6_read_otp_cal(unsigned int addr, unsigned char *data, unsigned int siz
 		}
 		*(data + i) = read_cmos_sensor_8(otp_addr++);
 	}
-	write_cmos_sensor_8(0x0A00, 0x04);
-	write_cmos_sensor_8(0x0A00, 0x00);
+	s5k3l6_otp_off_setting();
 
 	return size;
 }

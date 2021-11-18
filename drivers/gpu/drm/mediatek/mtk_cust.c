@@ -10,16 +10,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include "mtk_drm_drv.h"
+#include "mtk_debug.h"
 
-int set_lcm(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking, bool need_lock)
+int set_lcm(struct mtk_ddic_dsi_msg *cmd_msg)
 {
-	return mtk_ddic_dsi_send_cmd(cmd_msg, blocking, need_lock);
+	return set_lcm_wrapper(cmd_msg);
 }
+EXPORT_SYMBOL(set_lcm);
 
-int read_lcm(struct mtk_ddic_dsi_msg *cmd_msg, bool need_lock)
+int read_lcm(struct mtk_ddic_dsi_msg *cmd_msg)
 {
-	return mtk_ddic_dsi_read_cmd(cmd_msg, need_lock);
+	return read_lcm_wrapper(cmd_msg);
 }
+EXPORT_SYMBOL(read_lcm);

@@ -83,6 +83,15 @@ config PD_DBG_INFO
 	  information
 	  Say N to disable
 
+config SEC_USB_SS_SWITCH
+	bool "Sec USB Super Speed Switch"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable SEC USB SS SWITCH
+	  information
+	  Say N to disable
+
 config SEC_HICCUP
 	bool "SEC HICCUP"
 	default n

@@ -408,14 +408,85 @@ static ssize_t show_nad_event(struct device *dev,
 
 	return sprintf(buf, "%d", curr_event);
 }
-
 static DEVICE_ATTR(nad_event, S_IRUGO | S_IWUSR, show_nad_event, store_nad_event);
+
+
+//////////////////////////////////////////////////
+/////// BALANCER /////////////////////////////////
+//////////////////////////////////////////////////
+static ssize_t store_nad_main(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	NAD_PRINT("%s\n", __func__);
+	curr_event = 3;
+	return count;
+}
+
+static ssize_t show_nad_main(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	int count;
+	int ret = 0;
+	
+	NAD_PRINT("%s\n", __func__);
+	ret = sec_set_nad_param(NAD_PARAM_READ);
+	if (ret < 0)
+		pr_err("%s: read error! %d\n", __func__, ret);
+
+	switch (sec_nad_env.nad_main_result) {
+		case NAD_CHECK_PASS: {
+			NAD_PRINT("MAIN NAD PASS\n");
+			count = sprintf(buf, "OK_2.0\n");
+		} break;
+
+		case NAD_CHECK_FAIL: {
+			NAD_PRINT("MAIN NAD FAIL\n");
+			count = sprintf(buf, "NG_2.0_FAIL\n");
+		} break;
+
+		case NAD_CHECK_INCOMPLETED: {
+			NAD_PRINT("MAIN NAD INCOMPLETED\n");
+			count = sprintf(buf, "OK\n");
+		} break;
+
+		case NAD_CHECK_NONE: {
+			NAD_PRINT("MAIN NAD NOT_TESTED\n");
+			count = sprintf(buf, "OK\n");
+		} break;
+	}
+
+	return count;
+}
+static DEVICE_ATTR(balancer, S_IRUGO | S_IWUSR, show_nad_main, store_nad_main);
+
+static ssize_t show_main_nad_timeout(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", STEP_MAIN_TIMEOUT);
+}
+static DEVICE_ATTR(timeout, 0444, show_main_nad_timeout, NULL);
+
+static ssize_t store_main_nad_run(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	return count;
+}
+
+static ssize_t show_main_nad_run(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "END\n");
+}
+static DEVICE_ATTR(run, S_IRUGO | S_IWUSR, show_main_nad_run, store_main_nad_run);
 
 static int __init sec_nad_init(void)
 {
 	int ret = 0;
 
 	struct device* sec_nad;
+	struct device* sec_nad_balancer;
 
 	NAD_PRINT("%s\n", __func__);
 
@@ -425,6 +496,12 @@ static int __init sec_nad_init(void)
 
 	sec_nad = sec_device_create(NULL, "sec_nad");
 
+	if (IS_ERR(sec_nad)) {
+		pr_err("%s Failed to create device(sec_nad)!\n", __func__);
+		return PTR_ERR(sec_nad);
+	}
+
+	sec_nad_balancer = sec_device_create(NULL, "sec_nad_balancer");
 	if (IS_ERR(sec_nad)) {
 		pr_err("%s Failed to create device(sec_nad)!\n", __func__);
 		return PTR_ERR(sec_nad);
@@ -484,6 +561,24 @@ static int __init sec_nad_init(void)
 		goto err_create_nad_sysfs;
 	}
 	
+	ret = device_create_file(sec_nad_balancer, &dev_attr_balancer);
+	if (ret) {
+		pr_err("%s: Failed to create device file\n", __func__);
+		goto err_create_nad_sysfs;
+	}
+
+	ret = device_create_file(sec_nad_balancer, &dev_attr_timeout);
+	if (ret) {
+		pr_err("%s: Failed to create device file\n", __func__);
+		goto err_create_nad_sysfs;
+	}
+
+	ret = device_create_file(sec_nad_balancer, &dev_attr_run);
+	if (ret) {
+		pr_err("%s: Failed to create device file\n", __func__);
+		goto err_create_nad_sysfs;
+	}
+
 	if(add_uevent_var(&nad_uevent, "NAD_TEST=%s", "DONE")) {
 		pr_err("%s : uevent NAD_TEST_AND_PASS is failed to add\n", __func__);
 		goto err_create_nad_sysfs;

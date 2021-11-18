@@ -20,7 +20,6 @@
 #include <linux/module.h>
 #include <linux/file.h>
 #include <linux/fs.h>
-#include <linux/xattr.h>
 #include <linux/magic.h>
 #include <crypto/hash_info.h>
 

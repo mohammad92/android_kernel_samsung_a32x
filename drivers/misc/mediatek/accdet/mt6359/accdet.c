@@ -1184,7 +1184,7 @@ static void multi_key_detection(u32 cur_AB)
 	 * issued AB=0 and Eint, delay to wait eint been flaged in register.
 	 * or eint handler issued. cur_eint_state == PLUG_OUT
 	 */
-	mdelay(10);
+	usleep_range(10000, 12000);
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
 	irq_bit = !(pmic_read(PMIC_ACCDET_IRQ_ADDR) & ACCDET_EINT_IRQ_B2_B3);
@@ -1916,7 +1916,7 @@ static void eint_work_callback(void)
 		pr_info("%s VUSB LP dis done\n", __func__);
 		enable_accdet(0);
 #if NO_USE_COMPARATOR
-		mdelay(180);/* may be need delay more, relevant to Bias vol. */
+		msleep(180);/* may be need delay more, relevant to Bias vol. */
 		check_cable_type();
 		if (accdet_status == MIC_BIAS)
 			cali_voltage = accdet_get_auxadc(1);
@@ -3276,9 +3276,9 @@ static inline void accdet_init(void)
 #if PMIC_ACCDET_KERNEL
 	/* set and clear initial bit every eint interrutp */
 	pmic_write_set(PMIC_ACCDET_SEQ_INIT_ADDR, PMIC_ACCDET_SEQ_INIT_SHIFT);
-	mdelay(2);
+	mdelay(2); /* please do not change usleep_range(2000, 3000); */
 	pmic_write_clr(PMIC_ACCDET_SEQ_INIT_ADDR, PMIC_ACCDET_SEQ_INIT_SHIFT);
-	mdelay(1);
+	mdelay(1); /* please do not change usleep_range(1000, 1500); */
 #endif
 	/* init the debounce time (debounce/32768)sec */
 	accdet_set_debounce(accdet_state000, cust_pwm_deb->debounce0);

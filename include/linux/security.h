@@ -59,6 +59,9 @@ struct mm_struct;
 #ifdef CONFIG_KDP_CRED
 #include <linux/kdp.h>
 #endif
+#ifdef CONFIG_RUSTUH_KDP_CRED
+#include <linux/rustkdp.h>
+#endif
 
 /* If capable should audit the security request */
 #define SECURITY_CAP_NOAUDIT 0
@@ -76,7 +79,7 @@ enum lsm_event {
 	LSM_POLICY_CHANGE,
 };
 
-#ifndef CONFIG_KDP_CRED
+#if !defined(CONFIG_KDP_CRED) && !defined(CONFIG_RUSTUH_KDP_CRED)
 #define security_integrity_current()  0
 #endif
 

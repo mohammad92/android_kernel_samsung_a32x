@@ -10,22 +10,32 @@ fwdir := $(subst $(quote),,$(CONFIG_EXTRA_FIRMWARE_DIR))
 fwabs := $(addprefix $(srctree)/,$(filter-out /%,$(fwdir)))$(filter /%,$(fwdir))
 
 fw-external-y := $(subst $(quote),,$(CONFIG_EXTRA_FIRMWARE))
+fw-external-$(CONFIG_FIVE_TEE_DRIVER) += five/ffffffff000000000000000000000072.tlbin
 
 ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
 fw-external-$(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM) += tsp_synaptics/PR2100000870-td4150b0_01010011_20200504.img
 else
 fw-external-$(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM) += tsp_synaptics/PR3160762_TD4150_A3CORE_01020001.img
 endif
+fw-external-$(CONFIG_TOUCHSCREEN_IST4050) += tsp_imagis/ist40xx_a31.bin tsp_imagis/ist40xx_a31_cmcs.bin
 
 fw-external-$(CONFIG_TOUCHSCREEN_MELFAS_MSS100) += melfas/melfas_mip4_ts.fw
+fw-external-$(CONFIG_TOUCHSCREEN_MELFAS) += tsp_melfas/mss100_a22.bin tsp_melfas/mss100_a22_old.bin
 fw-external-$(CONFIG_TOUCHSCREEN_IST4050) += tsp_imagis/ist40xx_a31.bin
 fw-external-$(CONFIG_TOUCHSCREEN_IST4050) += tsp_imagis/ist40xx_a31_cmcs.bin
-fw-external-$(CONFIG_TOUCHSCREEN_ILITEK_ILI9881X) += tsp_ilitek/ili9881x_a32x.hex tsp_ilitek/ili7806s_a32x.hex
+fw-external-$(CONFIG_TOUCHSCREEN_NT36xxx_HOSTDL_SPI_A02C) += tsp_novatek/nt36525_a02_csot.bin
+fw-external-$(CONFIG_TOUCHSCREEN_ILITEK_ILI9881X) += tsp_ilitek/ili9881x_a32x.hex tsp_ilitek/ili7806s_a32x.hex \
+							tsp_ilitek/ili9881x_a02.hex tsp_ilitek/ili9881x_a02_boe.hex
+
 fw-external-$(CONFIG_SENSORS_A96T3X6_A32X) += abov/a96t356_a32x_main.bin abov/a96t356_a32x_sub.bin \
 					 abov/a96t356_a32x_kor_main.bin abov/a96t356_a32x_kor_sub.bin
 fw-external-$(CONFIG_TOUCHSCREEN_NT36xxx_HOSTDL_SPI) += tsp_novatek/nt36525_a32_sharp.bin tsp_novatek/nt36525_a32_mp_sharp.bin \
-							tsp_novatek/nt36675_a32_ltps.bin tsp_novatek/nt36675_a32_mp_ltps.bin
-fw-external-$(CONFIG_TOUCHSCREEN_STM) += tsp_stm/fts5cu56a_a32.bin
+							tsp_novatek/nt36675_a32_ltps.bin tsp_novatek/nt36675_a32_mp_ltps.bin \
+							tsp_novatek/nt36525_a02_csot.bin tsp_novatek/nt36525_a02_mp_csot.bin \
+							tsp_novatek/nt36575_a02_ltps.bin tsp_novatek/nt36575_a02_mp_ltps.bin \
+							tsp_novatek/nt36525_a02_boe.bin tsp_novatek/nt36525_a02_mp_boe.bin
+fw-external-$(CONFIG_TOUCHSCREEN_STM) += tsp_stm/fts5cu56a_a32.bin tsp_stm/fts5cu56a_a22.bin
+fw-external-$(CONFIG_TOUCHSCREEN_ZINITIX_ZT75XX) += tsp_zinitix/zt7548_a41.bin tsp_zinitix/zt7548_a415d.bin
 
 quiet_cmd_fwbin = MK_FW   $@
       cmd_fwbin = FWNAME="$(patsubst firmware/%.gen.S,%,$@)";		     \

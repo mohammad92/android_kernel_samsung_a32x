@@ -194,7 +194,7 @@ void lockdep_test_safe_to_unsafe(void)
 	mod_timer(&lockdep_timer, jiffies + msecs_to_jiffies(10));
 
 	/* wait for lockdep_test_timer to finish */
-	mdelay(200);
+	msleep(200);
 
 	/* safe and unconcerned */
 	spin_lock_irqsave(&lockA, flags);
@@ -274,7 +274,9 @@ static int lock_monitor_thread1(void *data)
 	down_read(&rw_semA);
 	mutex_lock(&mutexA);
 	rcu_read_lock();
+
 	mspin(20000);
+
 	rcu_read_unlock();
 	mutex_unlock(&mutexA);
 	up_read(&rw_semA);

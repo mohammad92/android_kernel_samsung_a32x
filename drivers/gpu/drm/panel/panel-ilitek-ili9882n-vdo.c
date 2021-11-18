@@ -38,6 +38,8 @@
 #include "../mediatek/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
 #endif
 
+#define ENABLE_MTK_LCD_HWID_CHECK_ILI
+
 /*******************************************************/
 /* Backlight Function                                  */
 /* Device Name : LM36274                               */
@@ -46,7 +48,8 @@
 /*******************************************************/
 #include <linux/i2c-dev.h>
 #include <linux/i2c.h>
-
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 
 #define LCM_I2C_COMPATIBLE 	"mediatek,i2c_lcd_bias"
 #define LCM_I2C_ID_NAME 	"ili9882n_lm36274"
@@ -91,6 +94,31 @@ static struct i2c_driver _lcm_i2c_driver = {
 /*****************************************************************************
  * Device Control Function
  *****************************************************************************/
+#ifdef ENABLE_MTK_LCD_HWID_CHECK_ILI
+static unsigned int _lcm_lcd_id_dt(void)
+{
+	struct device_node *root = of_find_node_by_path("/");
+	int _lcd_id_gpio1, _lcd_id_gpio2;
+	unsigned int _lcd_id;
+
+	if (IS_ERR_OR_NULL(root)) {
+		pr_info("root dev node is NULL\n");
+		return -1;
+	}
+
+	_lcd_id_gpio1 = of_get_named_gpio(root, "dtbo-lcd_id_1", 0);
+	_lcd_id_gpio2 = of_get_named_gpio(root, "dtbo-lcd_id_2", 0);
+
+	/* TO DO : read gpio value */
+	_lcd_id = (unsigned int)(gpio_get_value(_lcd_id_gpio2) << 1) |
+			gpio_get_value(_lcd_id_gpio1);
+
+	pr_info("[LCM][I2C][ili9882n] lcd_id 0x%x\n", _lcd_id);
+
+	return _lcd_id;
+}
+#endif
+
 static void _lm36274_init(void)
 {
 	_lcm_i2c_write_bytes(0x0C, 0x2C);
@@ -107,14 +135,18 @@ static void _lm36274_init(void)
 
 	msleep(2);
 }
+
 /*****************************************************************************
  * I2C Interface Function
  *****************************************************************************/
-#define BOARD_ID_BRINGUP1     0
-#define BOARD_ID_BRINGUP2     1
-#define BOARD_ID_BRINGUP3     2
-#define BOARD_ID_REV00        3
-
+/* bitfield: GPIO173, GPIO174, GPIO175, GPIO176 */
+#define BOARD_HW_REV_BRINGUP1     (0b0000)
+#define BOARD_HW_REV_BRINGUP2     (0b0001)
+#define BOARD_HW_REV_BRINGUP3     (0b0010)
+#define BOARD_HW_REV_00           (0b0011)
+#define BOARD_HW_REV_01           (0b0100)
+#define BOARD_HW_REV_02           (0b0101)
+#define LCD_ILI9882N_ID           (0)
 static int _lcm_i2c_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
 {
@@ -131,7 +163,7 @@ static int _lcm_i2c_probe(struct i2c_client *client,
 		pr_info("root dev node is NULL\n");
 		return -1;
 	}
-	
+
 	ret = of_property_read_u32(root, "dtbo-hw_rev", &hw_version);
 	if (ret < 0) {
 		pr_info("get dtbo-hw_rev fail:%d\n", ret);
@@ -140,14 +172,18 @@ static int _lcm_i2c_probe(struct i2c_client *client,
 		pr_info("Get HW version = %d\n", hw_version);
 	}
 
-	if (hw_version != BOARD_ID_BRINGUP1 && hw_version != BOARD_ID_BRINGUP2
-		&& hw_version != BOARD_ID_BRINGUP3) {
+#ifdef ENABLE_MTK_LCD_HWID_CHECK_ILI
+	if ((hw_version == BOARD_HW_REV_00) || (hw_version == BOARD_HW_REV_01) ||
+		((hw_version == BOARD_HW_REV_02) && (_lcm_lcd_id_dt() == LCD_ILI9882N_ID))) {
 		pr_info("ili9882n : %s : board revision and LCM match\n", __func__);
 		return 0;
 	}
 
 	pr_info("ili9882n : %s : board revision and LCM doesn't match.\n", __func__);
 	return -EPERM;
+#else
+	return 0;
+#endif
 }
 
 static int _lcm_i2c_remove(struct i2c_client *client)
@@ -661,6 +697,12 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	struct device_node *backlight;
 	int ret;
 
+#ifdef ENABLE_MTK_LCD_HWID_CHECK_ILI
+	if (_lcm_lcd_id_dt() != LCD_ILI9882N_ID) {
+		pr_info("[ili9882n]%s : LCD ID not match\n", __func__);
+		return -1;
+	}
+#endif
 	ctx = devm_kzalloc(dev, sizeof(struct lcm), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;

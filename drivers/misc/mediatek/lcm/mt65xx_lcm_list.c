@@ -1308,6 +1308,26 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(TD4150_HDP_DSI_LM36274)
 	&td4150_hdp_dsi_lm36274_lcm_drv,
 #endif
+
+#if defined(NT36525B_HDP_DSI_VDO_LM36274)
+	&nt36525b_hdp_dsi_vdo_lm36274_lcm_drv,
+#endif
+
+#if defined(S6E3FC3_FHDP_CMD_A22_LTE)
+	&s6e3fc3_fhdp_cmd_a22_lte_lcm_drv,
+#endif
+
+#if defined(S6E3FC3_HDP_CMD_A22_LTE)
+	&s6e3fc3_hdp_cmd_a22_lte_lcm_drv,
+#endif
+
+#if defined(NT36525B_HDP_DSI_VDO_LM36274_CSOT_SHARP)
+	&nt36525b_hdp_dsi_vdo_lm36274_csot_sharp_lcm_drv,
+#endif
+
+#if defined(NT36525B_HDP_DSI_VDO_LM36274_BOE)
+	&nt36525b_hdp_dsi_vdo_lm36274_boe_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {

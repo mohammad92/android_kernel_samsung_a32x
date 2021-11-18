@@ -34,6 +34,7 @@
 #include "ssp_cmd_define.h"
 #include "ssp_platform.h"
 #include "ssp_injection.h"
+#include "ssp_system_checker.h"
 #ifdef CONFIG_SEC_VIB_NOTIFIER
 #include <linux/vibrator/sec_vibrator_notifier.h>
 #include "ssp_motor.h"
@@ -93,7 +94,7 @@ static void init_sensorlist(struct ssp_data *data)
 		SENSOR_INFO_WAKE_UP_MOTION,
 		SENSOR_INFO_AUTO_BIRGHTNESS,
 		SENSOR_INFO_VDIS_GYRO,
-		SENSOR_INFO_POCKET_MODE,
+		SENSOR_INFO_POCKET_MODE_LITE,
 		SENSOR_INFO_PROXIMITY_CALIBRATION,
 		SENSOR_INFO_PROTOS_MOTION,
 	};
@@ -141,6 +142,7 @@ static void initialize_variable(struct ssp_data *data)
 	for (type = 0 ; type <= RESET_TYPE_MAX ; type++)
 		data->cnt_ssp_reset[type] = 0;
 	data->check_noevent_reset_cnt = -1;
+	data->reset_type = RESET_TYPE_MAX;
 
 	data->last_resume_status = SCONTEXT_AP_STATUS_RESUME;
 
@@ -185,7 +187,7 @@ int open_sensor_calibration_data(struct ssp_data *data)
 #endif
 
 #ifdef CONFIG_SENSORS_SSP_PROXIMITY
-#ifdef CONFIG_SENSROS_SSP_PROXIMITY_THRESH_CAL
+#if defined(CONFIG_SENSROS_SSP_PROXIMITY_THRESH_CAL) || defined(CONFIG_SENSORS_SSP_PROXIMITY_FACTORY_CROSSTALK_CAL)
 	proximity_open_calibration(data);
 #endif
 #ifdef CONFIG_SENSORS_SSP_PROXIMITY_MODIFY_SETTINGS
@@ -258,14 +260,6 @@ int initialize_mcu(struct ssp_data *data)
 		return FAIL;
 	}
 
-	if (data->cnt_reset == 0) {
-		ret = initialize_indio_dev(&(data->pdev->dev), data);
-		if (ret < 0) {
-			ssp_errf("could not create input device");
-			return FAIL;
-		}
-	}
-
 	ret = get_firmware_rev(data);
 	if (ret < 0) {
 		ssp_errf("get firmware rev");
@@ -314,6 +308,17 @@ static void sync_sensor_state(struct ssp_data *data)
 	}
 }
 
+static void save_reset_info(struct ssp_data *data)
+{
+	data->reset_info.timestamp = get_current_timestamp();
+	get_tm(&(data->reset_info.time));
+	if (data->reset_type < RESET_TYPE_MAX)
+		data->reset_info.reason = data->reset_type;
+	else
+		data->reset_info.reason = RESET_TYPE_HUB_CRASHED;
+	data->reset_type = RESET_TYPE_MAX;
+}
+
 void refresh_task(struct work_struct *work)
 {
 	struct ssp_data *data = container_of((struct delayed_work *)work,
@@ -326,11 +331,7 @@ void refresh_task(struct work_struct *work)
 	__pm_stay_awake(data->ssp_wakelock);
 	ssp_infof();
 	data->cnt_reset++;
-
-#ifdef CONFIG_SENSORS_SSP_DUMP
-	if (data->cnt_reset == 0)
-		initialize_ssp_dump(data);
-#endif
+	save_reset_info(data);
 
 	if (data->sensor_spec) {
 		ssp_infof("prev sensor_spec free");
@@ -347,6 +348,10 @@ void refresh_task(struct work_struct *work)
 		ssp_errf("initialize_mcu is failed. stop refresh task");
 		goto exit;
 	}
+#ifdef CONFIG_SSP_ENG_DEBUG
+	if (is_system_checking())
+		goto exit;
+#endif
 	sync_sensor_state(data);
 	report_scontext_notice_data(data, SCONTEXT_AP_STATUS_RESET);
 	enable_timestamp_sync_timer(data);
@@ -354,6 +359,10 @@ void refresh_task(struct work_struct *work)
 exit:
 	__pm_relax(data->ssp_wakelock);
 	ssp_wake_up_wait_event(&data->reset_lock);
+#ifdef CONFIG_SSP_ENG_DEBUG
+	if (is_system_checking())
+		system_ready_cb();
+#endif
 }
 
 int queue_refresh_task(struct ssp_data *data, int delay)
@@ -471,6 +480,21 @@ static int ssp_parse_dt(struct device *dev, struct ssp_data *data)
 	ssp_info("prox-mode-thresh - %u, %u", data->prox_mode_thresh[PROX_THRESH_HIGH],
 		 data->prox_mode_thresh[PROX_THRESH_LOW]);
 
+#endif
+
+#ifdef CONFIG_SENSORS_SSP_PROXIMITY_FACTORY_CROSSTALK_CAL
+	if (of_property_read_u16(np, "ssp-prox-cal-add-value", &data->prox_cal_add_value))
+		ssp_err("no prox-cal-add-value, set as 0");
+
+	ssp_info("prox-cal-add-value - %u", data->prox_cal_add_value);
+
+	if (of_property_read_u16_array(np, "ssp-prox-cal-thresh", data->prox_cal_thresh, 2))
+		ssp_err("no prox-cal-thresh, set as 0");
+
+	ssp_info("prox-cal-thresh - %u, %u", data->prox_cal_thresh[0], data->prox_cal_thresh[1]);
+
+	data->prox_thresh_default[0] = data->prox_thresh[0];
+	data->prox_thresh_default[1] = data->prox_thresh[1];
 #endif
 
 #endif
@@ -613,6 +637,9 @@ int ssp_probe(struct platform_device *pdev)
 	mutex_init(&data->comm_mutex);
 	mutex_init(&data->pending_mutex);
 	mutex_init(&data->enable_mutex);
+#ifdef CONFIG_SSP_ENG_DEBUG
+	ssp_system_checker_init();
+#endif
 
 	pr_info("\n#####################################################\n");
 
@@ -645,6 +672,12 @@ int ssp_probe(struct platform_device *pdev)
 		goto err_sysfs_create;
 	}
 
+	ret = initialize_indio_dev(&(data->pdev->dev), data);
+	if (ret < 0) {
+		ssp_errf("could not create input device");
+		//return FAIL;
+	}
+
 	ret = ssp_scontext_initialize(data);
 	if (ret < 0) {
 		ssp_errf("ssp_scontext_initialize err(%d)", ret);
@@ -658,6 +691,10 @@ int ssp_probe(struct platform_device *pdev)
 		ssp_injection_remove(data);
 		goto err_init_injection;
 	}
+
+#ifdef CONFIG_SENSORS_SSP_DUMP
+	initialize_ssp_dump(data);
+#endif
 
 	data->is_probe_done = true;
 

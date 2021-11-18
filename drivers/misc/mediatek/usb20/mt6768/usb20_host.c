@@ -623,7 +623,13 @@ static void do_host_work(struct work_struct *data)
 			queue_delayed_work(mtk_musb->st_wq,
 						&host_plug_test_work, 0);
 		usb_clk_state = OFF_TO_ON;
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+		usbpd_set_host_on(mtk_musb->man, host_on);
+#endif
 	}  else if (!host_on && mtk_musb->is_host) {
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+		usbpd_set_host_on(mtk_musb->man, host_on);
+#endif
 		/* switch from host -> device */
 		/* for device no disconnect interrupt */
 		spin_lock_irqsave(&mtk_musb->lock, flags);
@@ -789,10 +795,23 @@ void mt_usb_otg_init(struct musb *musb)
 	/* EP table */
 	musb->fifo_cfg_host = fifo_cfg_host;
 	musb->fifo_cfg_host_size = ARRAY_SIZE(fifo_cfg_host);
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+	musb->usb_d = kzalloc(sizeof(struct usb_dev), GFP_KERNEL);
+	if (!musb->usb_d) {
+		DBG(0, "Couldn't allocate memory\n");
+		return;
+	}
+	musb->usb_d->ops = NULL;
+	musb->usb_d->data = (void *)musb;
+	musb->man = register_usb(musb->usb_d);
+#endif
 
 }
 void mt_usb_otg_exit(struct musb *musb)
 {
+#if IS_ENABLED(CONFIG_IF_CB_MANAGER)
+	kfree(musb->usb_d);
+#endif
 	DBG(0, "OTG disable vbus\n");
 	mt_usb_set_vbus(mtk_musb, 0);
 }

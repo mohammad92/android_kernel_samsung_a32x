@@ -79,6 +79,7 @@ unsigned int scp_enable[SCP_CORE_TOTAL];
 /* scp dvfs variable*/
 unsigned int scp_expected_freq;
 unsigned int scp_current_freq;
+unsigned int scp_dvfs_cali_ready;
 
 /*scp awake variable*/
 int scp_awake_counts[SCP_CORE_TOTAL];
@@ -393,6 +394,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
 
+		scp_dvfs_cali_ready = 1;
 		pr_debug("[SCP] notify blocking call\n");
 		blocking_notifier_call_chain(&scp_A_notifier_list
 			, SCP_EVENT_READY, NULL);
@@ -803,6 +805,8 @@ DEVICE_ATTR(scp_ipi_test, 0644, scp_ipi_test_show, scp_ipi_debug);
 #if SCP_RECOVERY_SUPPORT
 void scp_wdt_reset(int cpu_id)
 {
+	pr_debug("[SCP] %s %d\n", __func__, cpu_id);
+
 	switch (cpu_id) {
 	case 0:
 		writel(V_INSTANT_WDT, R_CORE0_WDT_CFG);
@@ -1180,6 +1184,12 @@ void scp_register_feature(enum feature_id id)
 			scp_ready[SCP_A_ID]);
 		return;
 	}
+	/* prevent from access when scp dvfs cali isn't done */
+	if (!scp_dvfs_cali_ready) {
+		pr_debug("[SCP] %s: dvfs cali not ready, scp_dvfs_cali=%u\n",
+		__func__, scp_dvfs_cali_ready);
+		return;
+	}
 
 	/* because feature_table is a global variable,
 	 * use mutex lock to protect it from accessing in the same time
@@ -1226,6 +1236,12 @@ void scp_deregister_feature(enum feature_id id)
 	if (!scp_ready[SCP_A_ID]) {
 		pr_debug("[SCP] %s:not ready, scp=%u\n", __func__,
 			scp_ready[SCP_A_ID]);
+		return;
+	}
+	/* prevent from access when scp dvfs cali isn't done */
+	if (!scp_dvfs_cali_ready) {
+		pr_debug("[SCP] %s: dvfs cali not ready, scp_dvfs_cali=%u\n",
+		__func__, scp_dvfs_cali_ready);
 		return;
 	}
 
@@ -1449,6 +1465,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	 *   SCP_PLATFORM_READY = 1,
 	 */
 	scp_ready[SCP_A_ID] = 0;
+	scp_dvfs_cali_ready = 0;
 
 	/* wake lock AP*/
 	__pm_stay_awake(&scp_reset_lock);
@@ -1720,7 +1737,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 
 	scpreg.irq = platform_get_irq_byname(pdev, "ipc0");
-#ifdef CONFIG_SENSORS_SSP
+#if defined(CONFIG_SENSORS_SSP) || defined(CONFIG_SHUB)
 	ret = request_threaded_irq(scpreg.irq, NULL, scp_A_irq_handler,
 		IRQF_ONESHOT, "SCP IPC0", NULL);
 #else
@@ -1733,7 +1750,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	}
 	pr_debug("ipc0 %d\n", scpreg.irq);
 	scpreg.irq = platform_get_irq_byname(pdev, "ipc1");
-#ifdef CONFIG_SENSORS_SSP
+#if defined(CONFIG_SENSORS_SSP) || defined(CONFIG_SHUB)
 	ret = request_threaded_irq(scpreg.irq, NULL, scp_A_irq_handler,
 		IRQF_ONESHOT, "SCP IPC1", NULL);
 #else
@@ -1867,6 +1884,7 @@ static int __init scp_init(void)
 		scp_enable[i] = 0;
 		scp_ready[i] = 0;
 	}
+	scp_dvfs_cali_ready = 0;
 
 #if SCP_DVFS_INIT_ENABLE
 	scp_dvfs_init();

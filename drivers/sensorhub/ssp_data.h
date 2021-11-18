@@ -17,6 +17,7 @@
 #include "ssp.h"
 
 u64 get_current_timestamp(void);
+void get_tm(struct rtc_time *tm);
 
 int parse_dataframe(struct ssp_data *, char *, int);
 
@@ -50,6 +51,10 @@ int set_proximity_setting_mode(struct ssp_data *data);
 int save_proximity_setting_mode(struct ssp_data *data);
 int open_proximity_setting_mode(struct ssp_data *data);
 #endif
+#ifdef CONFIG_SENSORS_SSP_PROXIMITY_FACTORY_CROSSTALK_CAL
+int save_prox_cal_threshold_data(struct ssp_data *data);
+int proximity_open_calibration(struct ssp_data *data);
+#endif
 #endif
 #ifdef CONFIG_SENSORS_SSP_LIGHT
 int set_light_coef(struct ssp_data *data);
@@ -75,6 +80,6 @@ int pressure_open_calibration(struct ssp_data *);
 int set_pdc_matrix(struct ssp_data *data);
 int mag_open_calibration(struct ssp_data *data);
 int set_mag_cal(struct ssp_data *data);
-int save_mag_cal_data(struct ssp_data *data, u8 *cal_data);
+int save_mag_cal_data(struct ssp_data *data);
 #endif
 #endif /* __SSP_DATA_H__ */

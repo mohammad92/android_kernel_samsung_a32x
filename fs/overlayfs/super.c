@@ -23,6 +23,9 @@
 #ifdef CONFIG_KDP_NS
 void rkp_set_mnt_flags(struct vfsmount *mnt, int flags);
 void rkp_reset_mnt_flags(struct vfsmount *mnt, int flags);
+#elif defined CONFIG_RUSTUH_KDP_NS
+void kdp_set_mnt_flags(struct vfsmount *mnt, int flags);
+void kdp_clear_mnt_flags(struct vfsmount *mnt, int flags);
 #endif
 
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
@@ -1027,6 +1030,8 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 		/* Don't inherit atime flags */
 #ifdef CONFIG_KDP_NS
 		rkp_reset_mnt_flags(ufs->upper_mnt, (MNT_NOATIME | MNT_NODIRATIME | MNT_RELATIME));
+#elif defined CONFIG_RUSTUH_KDP_NS
+		kdp_clear_mnt_flags(ufs->upper_mnt, (MNT_NOATIME | MNT_NODIRATIME | MNT_RELATIME));
 #else
 		ufs->upper_mnt->mnt_flags &= ~(MNT_NOATIME | MNT_NODIRATIME | MNT_RELATIME);
 #endif
@@ -1104,9 +1109,12 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 		 */
 #ifdef CONFIG_KDP_NS
 		rkp_set_mnt_flags(mnt, MNT_READONLY | MNT_NOATIME);
+#elif defined CONFIG_RUSTUH_KDP_NS
+		kdp_set_mnt_flags(mnt, MNT_READONLY | MNT_NOATIME);
 #else
 		mnt->mnt_flags |= MNT_READONLY | MNT_NOATIME;
 #endif
+
 
 		ufs->lower_mnt[ufs->numlower] = mnt;
 		ufs->numlower++;

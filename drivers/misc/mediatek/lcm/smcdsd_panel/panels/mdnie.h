@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef __MDNIE_H__
 #define __MDNIE_H__
 
@@ -146,8 +147,8 @@ struct mdnie_tune {
 	unsigned char **adjust_ldu_table;
 	unsigned char **night_mode_table;
 	unsigned char *color_lens_table;
-	int (*get_hbm_index)(int);
-	int (*color_offset[])(int, int);
+	int (*get_hbm_index)(int lux);
+	int (*color_offset[])(int x, int y);
 };
 
 struct rgb_info {

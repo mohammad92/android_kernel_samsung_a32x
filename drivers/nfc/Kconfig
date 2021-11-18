@@ -1,6 +1,14 @@
 #
 # Near Field Communication (NFC) devices
 #
+config SAMSUNG_NFC
+	tristate "Samsung NFC driver for module build"
+	default n
+	help
+	  Say Y here if you want to build support for NFC (Near field
+	  communication) devices.
+	  To compile this support as a module, choose M here: the module will
+	  be called nfc.
 
 config SEC_NFC
 	bool "Samsung NFC driver"

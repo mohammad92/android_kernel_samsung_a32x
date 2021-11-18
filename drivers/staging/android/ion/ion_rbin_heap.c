@@ -419,6 +419,9 @@ struct ion_heap *ion_rbin_heap_create(struct ion_platform_heap *data)
 {
 	struct ion_rbin_heap *rbin_heap;
 
+	if (!data->base || !data->size)
+		return ERR_PTR(-EINVAL);
+
 	rbin_heap = kzalloc(sizeof(struct ion_rbin_heap), GFP_KERNEL);
 	if (!rbin_heap)
 		return ERR_PTR(-ENOMEM);

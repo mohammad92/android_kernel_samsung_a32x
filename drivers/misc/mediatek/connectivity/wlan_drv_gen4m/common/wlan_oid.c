@@ -2774,6 +2774,12 @@ wlanoidSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 						prNewKey->ucBssIdx);
 					prAisSpecBssInfo->fgBipKeyInstalled =
 						TRUE;
+
+					DBGLOG(RSN, INFO, "Change BIP BC keyId "
+						"from %d to 3\n",
+						prCmdKey->ucKeyId);
+					/* Reserve keyid 3 for IGTK */
+					prCmdKey->ucKeyId = 3;
 				}
 			}
 #endif
@@ -2827,6 +2833,12 @@ wlanoidSetAddKey(IN struct ADAPTER *prAdapter, IN void *pvSetBuffer,
 						prAisSpecBssInfo
 							->fgBipKeyInstalled =
 							TRUE;
+
+						DBGLOG(RSN, INFO, "Change BIP BC keyId "
+											"from %d to 3\n",
+											prCmdKey->ucKeyId);
+						/* Reserve keyid 3 for IGTK */
+						prCmdKey->ucKeyId = 3;
 					} else
 #endif
 					{
@@ -3181,6 +3193,9 @@ wlanoidSetRemoveKey(IN struct ADAPTER *prAdapter,
 			}
 			ASSERT(prBssInfo->wepkeyWlanIdx < WTBL_SIZE);
 			ucRemoveBCKeyAtIdx = prBssInfo->wepkeyWlanIdx;
+			secPrivacyFreeForEntry(prAdapter,
+					prBssInfo->wepkeyWlanIdx);
+			prBssInfo->wepkeyWlanIdx = WTBL_RESERVED_ENTRY;
 		} else {
 			DBGLOG(RSN, INFO, "Remove group key id = %d",
 			       u4KeyIndex);
@@ -3197,6 +3212,13 @@ wlanoidSetRemoveKey(IN struct ADAPTER *prAdapter,
 						u4KeyIndex] < WTBL_SIZE);
 				ucRemoveBCKeyAtIdx =
 					prBssInfo->ucBMCWlanIndexS[u4KeyIndex];
+
+				secPrivacyFreeForEntry(prAdapter,
+				    prBssInfo->ucBMCWlanIndexS[u4KeyIndex]);
+				prBssInfo->ucBMCWlanIndexSUsed[u4KeyIndex]
+					= FALSE;
+				prBssInfo->ucBMCWlanIndexS[u4KeyIndex]
+					= WTBL_RESERVED_ENTRY;
 			}
 		}
 

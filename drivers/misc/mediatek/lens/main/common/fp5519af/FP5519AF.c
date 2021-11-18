@@ -35,6 +35,8 @@
 #define LOG_INF(format, args...)
 #endif
 
+#define mDELAY(ms)       usleep_range(ms*1000, ms*1000)
+
 static struct i2c_client *g_pstAF_I2Cclient;
 static int *g_pAF_Opened;
 static spinlock_t *g_pAF_SpinLock;
@@ -157,20 +159,20 @@ static int initAF(void)
 
 	LOG_INF("+\n");
 
-	mdelay(10);
+	mDELAY(5);
 
 	data = read_data(0x00);
 	LOG_INF("module id:%d\n", data);
 	s4AF_WriteReg(0x02, 0x01);
 	s4AF_WriteReg(0x02, 0x00);
-	mdelay(5);
+	mDELAY(5);
 	s4AF_WriteReg(0x02, 0x02);//ring
 	//s4AF_WriteReg(0x06, 0xA4);//101__100 sac4 with x8
-	s4AF_WriteReg(0x06, 0xA2);//101__011 sac4 with /2
-	mdelay(5);
-	s4AF_WriteReg(0x07, 0x3f);//00111111 SACT
+	s4AF_WriteReg(0x06, 0x61);//0110 0001 SAC3 with x1
+	mDELAY(5);
+	s4AF_WriteReg(0x07, 0x36);// 0011 0110 SACT
 	//s4AF_WriteReg(0x07, 0x00);//00111111 SACT
-	mdelay(1);
+	mDELAY(1);
 	s4AF_WriteReg(0x0A, 0x00);
 	s4AF_WriteReg(0x0B, 0x01);
 	s4AF_WriteReg(0x0C, 0xFF);
@@ -290,7 +292,7 @@ int FP5519AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 		for (i = 0; i < ARRAY_SIZE(noTickSoundDAC); i++) {
 			LOG_INF("now at dac %d\n", noTickSoundDAC[i]);
 			moveAF(noTickSoundDAC[i]);
-			mdelay(8);
+			mDELAY(8);
 			g_u4CurrPosition = noTickSoundDAC[i];
 		}
 	}

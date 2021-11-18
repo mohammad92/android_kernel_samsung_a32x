@@ -5244,6 +5244,7 @@ void mqmParseAssocRspWmmIe(IN uint8_t *pucIE,
 			if (IE_LEN(pucIE) != 24)
 				break;	/* WMM Info IE with a wrong length */
 			prStaRec->fgIsQoS = TRUE;
+			prStaRec->fgIsWmmSupported = TRUE;
 			prStaRec->fgIsUapsdSupported =
 				!!(prWmmParam->ucQosInfo & WMM_QOS_INFO_UAPSD);
 			for (eAci = ACI_BE; eAci < ACI_NUM; eAci++)

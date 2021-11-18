@@ -152,7 +152,9 @@ int stui_alloc_video_space(struct tui_hw_buffer *buffer)
 		return -1;
 	}
 	buffer_allocated = 1;
-	pr_debug("alloc (p=%p s=0x%lx)\n", (void *)phys_addr, total_size);
+
+	/*avoid addr print for safety reason*/
+	/*pr_debug("alloc (p=%p s=0x%lx)\n", (void *)phys_addr, total_size);*/
 
 	buffer->width = witdh;
 	buffer->height = height;

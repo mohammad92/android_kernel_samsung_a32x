@@ -103,8 +103,8 @@
 #endif
 
 #if (IS_ENABLED(CONFIG_MUIC_NOTIFIER) && !IS_ENABLED(CONFIG_USB_NOTIFY_LAYER) && IS_ENABLED(CONFIG_MUIC_S2MU005))
-#include <linux/muic/muic.h>
-#include <linux/muic/muic_notifier.h>
+#include <linux/muic/common/muic.h>
+#include <linux/muic/common/muic_notifier.h>
 #endif
 
 static void (*usb_hal_dpidle_request_fptr)(int);
@@ -133,11 +133,7 @@ int musb_fake_CDP;
  * init.$platform.usb.rc
  */
 int kernel_init_done;
-#ifdef MTK_SW_WORKAROUND
-int musb_force_on = 1;
-#else
 int musb_force_on;
-#endif
 int musb_host_dynamic_fifo = 1;
 int musb_host_dynamic_fifo_usage_msk;
 bool musb_host_db_enable;

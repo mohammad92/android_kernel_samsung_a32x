@@ -35,7 +35,7 @@
 #include "xhci-mtk.h"
 
 #if IS_ENABLED(CONFIG_MACH_MT6853)
-#include "mtu3_hal.h"
+#include "../mtu3/mtu3_hal.h"
 #endif
 
 /* ip_pw_ctrl0 register */

@@ -1283,6 +1283,55 @@ config KDP_TEST
     help
       enable KDP test.
 
+
+config RUSTUH_RKP
+	bool "Enable RKP(Realtime Kernel Protection) feature"
+	depends on UH
+	default n
+	help
+	  This solution provides the kernel protection
+	  using a security monitor located within an isolated execution environment.
+	  This isolated execution environment is either the Secure World of ARM TrustZone
+	  or a thin hypervisor that is protected by the hardware virtualization extensions.
+
+config RUSTUH_RKP_TEST
+	bool "Enable RKP test"
+	depends on !SAMSUNG_PRODUCT_SHIP && RUSTUH_RKP
+	default n
+	help
+	  enable RKP test.
+
+config RUSTUH_KDP
+    bool "Enable KDP(Kernel Data Protection) feature"
+    depends on !SEC_VTS_TEST
+    depends on !SEC_FACTORY
+    depends on UH
+    default n
+    help
+      Prevents unauthorized cred modification,
+      namespace modification, mapping for page table.
+
+config RUSTUH_KDP_CRED
+    bool "Enable KDP(Kernel Data Protection) cred feature"
+    depends on RUSTUH_KDP
+    default n
+    help
+      Prevents unauthorized cred modification.
+
+config RUSTUH_KDP_NS
+    bool "KDP(Kernel Data Protection) for namespace structure"
+    depends on RUSTUH_KDP
+    default n
+    help
+      Prevents unauthorized namespace modification.
+
+config RUSTUH_KDP_TEST
+    bool "Enable KDP test"
+    depends on !SAMSUNG_PRODUCT_SHIP && RUSTUH_KDP
+    default n
+    help
+      enable KDP test.
+
 endmenu
 
 menu "Userspace binary formats"

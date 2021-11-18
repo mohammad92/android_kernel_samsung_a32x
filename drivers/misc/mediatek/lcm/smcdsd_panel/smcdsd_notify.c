@@ -266,8 +266,8 @@ static struct notifier_block smcdsd_fb_notifier_blank_max = {
 
 static int __init smcdsd_notifier_init(void)
 {
-	EVENT_NAME_LEN = EVENT_NAME[FB_EARLY_EVENT_BLANK] ? min_t(u32, MAX_INPUT, strlen(EVENT_NAME[FB_EARLY_EVENT_BLANK])) : EVENT_NAME_LEN;
-	STATE_NAME_LEN = STATE_NAME[FB_BLANK_POWERDOWN] ? min_t(u32, MAX_INPUT, strlen(STATE_NAME[FB_BLANK_POWERDOWN])) : STATE_NAME_LEN;
+	EVENT_NAME_LEN = EVENT_NAME[FB_EARLY_EVENT_BLANK] ? (u32)strlen(EVENT_NAME[FB_EARLY_EVENT_BLANK]) : EVENT_NAME_LEN;
+	STATE_NAME_LEN = STATE_NAME[FB_BLANK_POWERDOWN] ? (u32)strlen(STATE_NAME[FB_BLANK_POWERDOWN]) : STATE_NAME_LEN;
 
 	fb_register_client(&smcdsd_fb_notifier_blank_min);
 	fb_register_client(&smcdsd_fb_notifier);

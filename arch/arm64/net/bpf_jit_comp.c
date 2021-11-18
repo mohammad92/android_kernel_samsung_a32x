@@ -35,6 +35,9 @@
 #include <linux/rkp.h>
 #endif
 #endif
+#ifdef CONFIG_RUSTUH_RKP
+#include <linux/rustrkp.h>
+#endif
 
 #include "bpf_jit.h"
 
@@ -943,6 +946,9 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 	prog->jited_len = image_size;
 #ifdef CONFIG_UH_RKP
 	uh_call(UH_APP_RKP, RKP_BFP_LOAD, (u64)header, (u64)(header->pages * 0x1000), 0, 0);
+#endif
+#ifdef CONFIG_RUSTUH_RKP
+	uh_call(UH_APP_RKP, RKP_BPF_LOAD, (u64)header, (u64)(header->pages * 0x1000), 0, 0);
 #endif
 out_off:
 	kfree(ctx.offset);

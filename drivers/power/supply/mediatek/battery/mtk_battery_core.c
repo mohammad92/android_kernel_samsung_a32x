@@ -939,6 +939,9 @@ static void fg_custom_part_ntc_table(const struct device_node *np,
 	idx = 0;
 
 	while (1) {
+		if (idx >= (saddles * 2))
+			break;
+
 		ret = of_property_read_u32_index(np, "rbat_battery_temperature",
 							idx, &bat_temp);
 		idx++;
@@ -950,9 +953,8 @@ static void fg_custom_part_ntc_table(const struct device_node *np,
 		p_fg_temp_table->BatteryTemp = bat_temp;
 		p_fg_temp_table->TemperatureR = temperature_r;
 
+		idx++;
 		p_fg_temp_table++;
-		if ((idx++) >= (saddles * 2))
-			break;
 	}
 }
 
@@ -2398,6 +2400,11 @@ void fg_drv_update_hw_status(void)
 	bat_vol = pmic_get_battery_voltage();
 	chr_vol = battery_get_vbus();
 	tmp = force_get_tbat(true);
+
+	bm_err("precise_soc: %d.%d\n",
+		(battery_get_precise_soc()/10), (battery_get_precise_soc()%10));
+	bm_err("precise_uisoc: %d.%d\n",
+		(battery_get_precise_uisoc()/10), (battery_get_precise_uisoc()%10));
 
 	bm_err("lbat %d %d %d %d\n",
 		gm.sw_low_battery_ht_en,
@@ -3908,8 +3915,8 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		}
 
 		bm_err(
-		"[fg_res]FG_DAEMON_CMD_SET_KERNEL_SOC = %d %d, type:%d\n",
-		daemon_soc, gm.soc, soc_type);
+		"[fg_res]FG_DAEMON_CMD_SET_KERNEL_SOC = %d %d %d, type:%d\n",
+		daemon_soc, gm.soc, gm.precise_soc, soc_type);
 
 	}
 	break;
@@ -3932,26 +3939,29 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		fg_cust_data.ui_old_soc = daemon_ui_soc;
 		old_uisoc = gm.ui_soc;
 
-		if (gm.disableGM30 == true)
+		if (gm.disableGM30 == true) {
 			gm.ui_soc = 50;
-		else
+			gm.precise_ui_soc = 50 * 10;
+		} else {
 			gm.ui_soc = (daemon_ui_soc + 50) / 100;
+			gm.precise_ui_soc = (daemon_ui_soc + 50) / 10;
+		}
 
 		/* when UISOC changes, check the diff time for smooth */
 		if (old_uisoc != gm.ui_soc) {
 			get_monotonic_boottime(&now_time);
 			diff = timespec_sub(now_time, gm.uisoc_oldtime);
 
-			bm_debug("[fg_res] FG_DAEMON_CMD_SET_KERNEL_UISOC = %d %d GM3:%d old:%d diff=%ld\n",
-				daemon_ui_soc, gm.ui_soc,
+			bm_debug("[fg_res] FG_DAEMON_CMD_SET_KERNEL_UISOC = %d %d %d GM3:%d old:%d diff=%ld\n",
+				daemon_ui_soc, gm.ui_soc, gm.precise_ui_soc,
 				gm.disableGM30, old_uisoc, diff.tv_sec);
 			gm.uisoc_oldtime = now_time;
 
 			battery_main.BAT_CAPACITY = gm.ui_soc;
 			battery_update(&battery_main);
 		} else {
-			bm_debug("[fg_res] FG_DAEMON_CMD_SET_KERNEL_UISOC = %d %d GM3:%d\n",
-				daemon_ui_soc, gm.ui_soc, gm.disableGM30);
+			bm_debug("[fg_res] FG_DAEMON_CMD_SET_KERNEL_UISOC = %d %d %d GM3:%d\n",
+				daemon_ui_soc, gm.ui_soc, gm.precise_ui_soc, gm.disableGM30);
 			/* ac_update(&ac_main); */
 			battery_main.BAT_CAPACITY = gm.ui_soc;
 			battery_update(&battery_main);

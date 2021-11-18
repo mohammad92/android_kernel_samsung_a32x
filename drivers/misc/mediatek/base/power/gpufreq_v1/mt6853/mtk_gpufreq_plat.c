@@ -766,16 +766,7 @@ static void mt_gpufreq_external_cg_control(void)
 	// 0x10006000
 	if (g_sleep) {
 		readl(g_sleep + 0x16C);
-		gpufreq_pr_info("pwr info 0x%x:0x%08x\n",
-			0x10006000 + 0x170,
-			readl(g_sleep + 0x170));
-	}
-
-	// 0x13FBF000
-	if (g_mfg_base) {
-		gpufreq_pr_info("mfg info 0x%x:0x%08x\n",
-					0x13FBF020,
-					readl(g_mfg_base + 0x20));
+		readl(g_sleep + 0x170);
 	}
 
 	/* [D] MFG_QCHANNEL_CON 0x13FB_F0B4 [4] QCHANNEL_ENABLE = 0x1 */
@@ -794,7 +785,11 @@ static void mt_gpufreq_external_cg_control(void)
 
 	// 0x10006000
 	if (g_sleep) {
-		readl(g_sleep + 0x16C);
+		gpufreq_pr_info("ON: pwr info 0x%x:0x%08x, pwr con 0x%x:0x%08x\n",
+			0x10006000 + 0x16C,
+			readl(g_sleep + 0x16C),
+			0x10006000 + 0x308,
+			readl(g_sleep + 0x308));
 		readl(g_sleep + 0x170);
 	}
 
@@ -1123,6 +1118,14 @@ void mt_gpufreq_power_control(enum mt_power_state power, enum mt_cg_state cg,
 			mt_gpufreq_mtcmos_control(power);
 
 		gpu_dvfs_vgpu_footprint(GPU_DVFS_VGPU_STEP_7);
+
+		if (g_sleep) {
+			gpufreq_pr_info("OFF: pwr info 0x%x:0x%08x, pwr con 0x%x:0x%08x\n",
+				0x10006000 + 0x16C,
+				readl(g_sleep + 0x16C),
+				0x10006000 + 0x308,
+				readl(g_sleep + 0x308));
+		}
 
 		if (buck == BUCK_OFF)
 			mt_gpufreq_buck_control(power);

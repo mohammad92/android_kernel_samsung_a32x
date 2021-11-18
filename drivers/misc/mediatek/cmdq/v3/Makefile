@@ -57,6 +57,8 @@ endif
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+else ifeq ($(CONFIG_TEEGRIS_TEE_SUPPORT),y)
+	ccflags-y += -I$(srctree)/drivers/misc/tzdev/include/tzdev
 endif
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)

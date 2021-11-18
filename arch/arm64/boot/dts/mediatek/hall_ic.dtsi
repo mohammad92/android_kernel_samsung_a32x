@@ -14,17 +14,23 @@
 		status = "okay";
 		compatible = "hall_ic";
 		pinctrl-names = "default";
-		pinctrl-0 = <&hall_irq &certify_hall_irq>;
+		pinctrl-0 = <&hall_irq 
+#if 1
+		&certify_hall_irq
+#endif
+		>;
 		hall {
 			name = "hall";
 			event = <0x15>;
 			gpios = <SEC_GPIO_REF(AP,pio,76) 1>;
 		};
+#if 1
 		certify_hall {
 			name = "certify_hall";
 			event = <0x1b>;
 			gpios = <SEC_GPIO_REF(AP,pio,11) 1>;
 		};
+#endif
 	};
 };
 
@@ -35,9 +41,11 @@
 	};
 };
 
+#if 1
 &pio {
 	certify_hall_irq: certify_hall_irq {
 		pinmux = <MTK_PINMUX(SEC_GPIO_NUM(AP,pio,11), 0)>;
 		bias-disable;
 	};
 };
+#endif

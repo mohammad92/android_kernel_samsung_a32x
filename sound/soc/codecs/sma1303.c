@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* sma1303.c -- sma1303 ALSA SoC Audio driver
  *
- * r003, 2019.11.25	- initial version  sma1303
+ * r010_ps, 2020.05.18	- initial version  sma1303
  *
  * Copyright 2019 Silicon Mitus Corporation / Iron Device Corporation
  *
@@ -70,6 +70,7 @@ struct sma1303_priv {
 	unsigned int sys_clk_id;
 	unsigned int init_vol;
 	unsigned int cur_vol;
+	unsigned int tsdw_cnt;
 	unsigned int bst_vol_lvl_status;
 	unsigned int flt_vdd_gain_status;
 	bool amp_power_status;
@@ -85,6 +86,7 @@ struct sma1303_priv {
 	unsigned int rev_num;
 	unsigned int last_over_temp;
 	unsigned int last_ocp_val;
+	unsigned int last_bclk;
 };
 
 static struct sma1303_pll_match sma1303_pll_matches[] = {
@@ -129,6 +131,7 @@ static const struct reg_default sma1303_reg_def[] = {
 	{ 0x25, 0x00 }, /* 0x25 CompLim3  */
 	{ 0x26, 0x04 }, /* 0x26 CompLim4  */
 	{ 0x33, 0x00 }, /* 0x33 SDM_CTRL  */
+	{ 0x34, 0x0C }, /* 0x34 OTP_DATA1  */
 	{ 0x36, 0x92 }, /* 0x36 Protection  */
 	{ 0x37, 0x3F }, /* 0x37 SlopeCTRL  */
 	{ 0x38, 0x64 }, /* 0x38 OTP_TRM0 */
@@ -173,7 +176,7 @@ static bool sma1303_readable_register(struct device *dev, unsigned int reg)
 	case SMA1303_10_SYSTEM_CTRL1 ... SMA1303_12_SYSTEM_CTRL3:
 	case SMA1303_14_MODULATOR ... SMA1303_1B_BASS_SPK7:
 	case SMA1303_23_COMP_LIM1 ... SMA1303_26_COMP_LIM4:
-	case SMA1303_33_SDM_CTRL:
+	case SMA1303_33_SDM_CTRL ... SMA1303_34_OTP_DATA1:
 	case SMA1303_36_PROTECTION  ... SMA1303_38_OTP_TRM0:
 	case SMA1303_3B_TEST1  ... SMA1303_3F_ATEST2:
 	case SMA1303_8B_PLL_POST_N ... SMA1303_92_FDPEC_CTRL:
@@ -198,7 +201,7 @@ static bool sma1303_writeable_register(struct device *dev, unsigned int reg)
 	case SMA1303_10_SYSTEM_CTRL1 ... SMA1303_12_SYSTEM_CTRL3:
 	case SMA1303_14_MODULATOR ... SMA1303_1B_BASS_SPK7:
 	case SMA1303_23_COMP_LIM1 ... SMA1303_26_COMP_LIM4:
-	case SMA1303_33_SDM_CTRL:
+	case SMA1303_33_SDM_CTRL ... SMA1303_34_OTP_DATA1:
 	case SMA1303_36_PROTECTION  ... SMA1303_38_OTP_TRM0:
 	case SMA1303_3B_TEST1  ... SMA1303_3F_ATEST2:
 	case SMA1303_8B_PLL_POST_N ... SMA1303_92_FDPEC_CTRL:
@@ -1087,6 +1090,50 @@ static int pll_pd_ctrl_put(struct snd_kcontrol *kcontrol,
 	return bytes_ext_put(kcontrol, ucontrol, SMA1303_8E_PLL_CTRL);
 }
 
+static const char * const sma1303_trm_lvl_text[] = {
+	"On", "Off"};
+
+static const struct soc_enum sma1303_trm_lvl_enum =
+SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(sma1303_trm_lvl_text),
+			sma1303_trm_lvl_text);
+
+static int sma1303_trm_lvl_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =
+		snd_soc_kcontrol_codec(kcontrol);
+	struct sma1303_priv *sma1303 = snd_soc_codec_get_drvdata(codec);
+	int val;
+
+	regmap_read(sma1303->regmap, SMA1303_8E_PLL_CTRL, &val);
+	ucontrol->value.integer.value[0] = ((val & 0x10) >> 4);
+
+	return 0;
+}
+
+static int sma1303_trm_lvl_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec =
+		snd_soc_kcontrol_codec(kcontrol);
+	struct sma1303_priv *sma1303 = snd_soc_codec_get_drvdata(codec);
+	int sel = (int)ucontrol->value.integer.value[0];
+	int device_info, otp_data;
+
+	regmap_read(sma1303->regmap, SMA1303_34_OTP_DATA1, &otp_data);
+	regmap_read(sma1303->regmap, SMA1303_FF_DEVICE_INDEX, &device_info);
+
+	if (((device_info & 0x03) != REV_NUM_TV0) && (sel == 1))
+		regmap_update_bits(sma1303->regmap,
+			SMA1303_8E_PLL_CTRL, 0x10,
+			(((otp_data & 0x20) >> 5) << 4));
+	else
+		regmap_update_bits(sma1303->regmap,
+			SMA1303_8E_PLL_CTRL, 0x10, 0 << 4);
+
+	return 0;
+}
+
 /* Post Gain Set */
 static int postscaler_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
@@ -1830,6 +1877,8 @@ static int sma1303_clk_mon_time_sel_put(struct snd_kcontrol *kcontrol,
 
 static const struct snd_kcontrol_new sma1303_snd_controls[] = {
 /* System CTRL [0x00] */
+SOC_SINGLE("I2C Reg Reset(1:reset_0:normal)",
+		SMA1303_00_SYSTEM_CTRL, 1, 1, 0),
 SOC_SINGLE_EXT("Power Up(1:Up_0:Down)", SND_SOC_NOPM, 0, 1, 0,
 	power_up_down_control_get, power_up_down_control_put),
 SOC_SINGLE_EXT("Force AMP Power Down", SND_SOC_NOPM, 0, 1, 0,
@@ -1981,6 +2030,10 @@ SND_SOC_BYTES_EXT("Test mode(Test 1~3_ATEST 1~2)",
 /* PLL Setting [0x8B ~ 0x8F] */
 SND_SOC_BYTES_EXT("PLL Setting", 5, pll_setting_get, pll_setting_put),
 SND_SOC_BYTES_EXT("PLL Power control", 1, pll_pd_ctrl_get, pll_pd_ctrl_put),
+SOC_ENUM_EXT("Trimming of OTP Level(1:on_0:off)", sma1303_trm_lvl_enum,
+	sma1303_trm_lvl_get, sma1303_trm_lvl_put),
+SOC_SINGLE("Low OCL mode(1:normal_0:low)",
+		SMA1303_8E_PLL_CTRL, 3, 1, 0),
 
 /* Postscaler [0x90] */
 SND_SOC_BYTES_EXT("Postscaler Set", 1,
@@ -2125,6 +2178,9 @@ static int sma1303_startup(struct snd_soc_codec *codec)
 	__func__, sma1303_trm_vbst_text[sma1303->bst_vol_lvl_status],
 	sma1303_flt_vdd_gain_text[sma1303->flt_vdd_gain_status]);
 
+	regmap_update_bits(sma1303->regmap, SMA1303_8E_PLL_CTRL,
+			PLL_PD2_MASK, PLL_OPERATION2);
+
 	regmap_update_bits(sma1303->regmap, SMA1303_00_SYSTEM_CTRL,
 			POWER_MASK, POWER_ON);
 
@@ -2136,6 +2192,17 @@ static int sma1303_startup(struct snd_soc_codec *codec)
 		/* SPK Mode (Mono) */
 		regmap_update_bits(sma1303->regmap, SMA1303_10_SYSTEM_CTRL1,
 				SPK_MODE_MASK, SPK_MONO);
+	}
+
+	if (sma1303->check_fault_status) {
+		if (sma1303->check_fault_period > 0)
+			queue_delayed_work(system_freezable_wq,
+				&sma1303->check_fault_work,
+					sma1303->check_fault_period * HZ);
+		else
+			queue_delayed_work(system_freezable_wq,
+				&sma1303->check_fault_work,
+					CHECK_PERIOD_TIME * HZ);
 	}
 
 	regmap_update_bits(sma1303->regmap, SMA1303_0E_MUTE_VOL_CTRL,
@@ -2161,6 +2228,8 @@ static int sma1303_shutdown(struct snd_soc_codec *codec)
 	regmap_update_bits(sma1303->regmap, SMA1303_0E_MUTE_VOL_CTRL,
 			SPK_MUTE_MASK, SPK_MUTE);
 
+	cancel_delayed_work_sync(&sma1303->check_fault_work);
+
 	/* To improve the Boost OCP issue,
 	 * time should be available for the Boost release time(40ms)
 	 * and Mute slope time(15ms)
@@ -2172,6 +2241,9 @@ static int sma1303_shutdown(struct snd_soc_codec *codec)
 
 	regmap_update_bits(sma1303->regmap, SMA1303_00_SYSTEM_CTRL,
 			POWER_MASK, POWER_OFF);
+
+	regmap_update_bits(sma1303->regmap, SMA1303_8E_PLL_CTRL,
+			PLL_PD2_MASK, PLL_PD2);
 
 	sma1303->amp_power_status = false;
 
@@ -2291,17 +2363,14 @@ static const struct snd_soc_dapm_route sma1303_audio_map[] = {
 };
 
 static int sma1303_setup_pll(struct snd_soc_codec *codec,
-		struct snd_pcm_hw_params *params)
+		unsigned int bclk)
 {
 	struct sma1303_priv *sma1303 = snd_soc_codec_get_drvdata(codec);
 
 	int i = 0;
-	int calc_to_bclk = params_rate(params) * params_physical_width(params)
-					* params_channels(params);
 
-	dev_info(codec->dev, "%s : rate = %d : bit size = %d : channel = %d\n",
-		__func__, params_rate(params), params_physical_width(params),
-			params_channels(params));
+	dev_info(codec->dev, "%s : BCLK = %dHz\n",
+		__func__, bclk);
 
 	if (sma1303->sys_clk_id == SMA1303_PLL_CLKIN_MCLK) {
 		dev_info(codec->dev, "%s : MCLK is not supported\n",
@@ -2314,14 +2383,10 @@ static int sma1303_setup_pll(struct snd_soc_codec *codec,
 				PLL_PD_MASK|PLL_REF_CLK_MASK,
 				PLL_OPERATION|PLL_SCK);
 
-		regmap_update_bits(sma1303->regmap, SMA1303_8E_PLL_CTRL,
-				PLL_PD2_MASK, PLL_OPERATION2);
-
 		for (i = 0; i < sma1303->num_of_pll_matches; i++) {
-			if (sma1303->pll_matches[i].input_clk ==
-					calc_to_bclk)
+			if (sma1303->pll_matches[i].input_clk == bclk)
 				break;
-			}
+		}
 	}
 
 	regmap_write(sma1303->regmap, SMA1303_8B_PLL_POST_N,
@@ -2342,9 +2407,12 @@ static int sma1303_dai_hw_params_amp(struct snd_pcm_substream *substream,
 	struct snd_soc_codec *codec = dai->codec;
 	struct sma1303_priv *sma1303 = snd_soc_codec_get_drvdata(codec);
 	unsigned int input_format = 0;
+	unsigned int bclk = params_rate(params) * params_physical_width(params)
+		* params_channels(params);
 
-	dev_info(codec->dev, "%s : rate = %d : bit size = %d\n", __func__,
-		params_rate(params), params_width(params));
+	dev_info(codec->dev, "%s : rate = %d : bit size = %d : channel =%d\n",
+			__func__, params_rate(params), params_width(params),
+			params_channels(params));
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 
@@ -2352,9 +2420,17 @@ static int sma1303_dai_hw_params_amp(struct snd_pcm_substream *substream,
 		if (sma1303->force_amp_power_down == false &&
 			(sma1303->sys_clk_id == SMA1303_PLL_CLKIN_MCLK
 			|| sma1303->sys_clk_id == SMA1303_PLL_CLKIN_BCLK)) {
-			sma1303_shutdown(codec);
-			sma1303_setup_pll(codec, params);
-			sma1303_startup(codec);
+
+			if (sma1303->last_bclk != bclk) {
+				if (sma1303->amp_power_status) {
+					sma1303_shutdown(codec);
+					sma1303_setup_pll(codec, bclk);
+					sma1303_startup(codec);
+				} else
+					sma1303_setup_pll(codec, bclk);
+
+				sma1303->last_bclk = bclk;
+			}
 		}
 
 		switch (params_rate(params)) {
@@ -2630,8 +2706,13 @@ static void sma1303_check_fault_worker(struct work_struct *work)
 
 	mutex_lock(&sma1303->lock);
 
-	ret = regmap_read(sma1303->regmap,
+	if (sma1303->tsdw_cnt)
+		ret = regmap_read(sma1303->regmap,
 			SMA1303_0A_SPK_VOL, &sma1303->cur_vol);
+	else
+		ret = regmap_read(sma1303->regmap,
+			SMA1303_0A_SPK_VOL, &sma1303->init_vol);
+
 	if (ret != 0) {
 		dev_err(sma1303->dev,
 			"failed to read SMA1303_0A_SPK_VOL : %d\n", ret);
@@ -2662,22 +2743,22 @@ static void sma1303_check_fault_worker(struct work_struct *work)
 		mutex_unlock(&sma1303->lock);
 		return;
 	}
-	/* Protected from setting larger than initial volume(0dB) */
-	if (sma1303->cur_vol < sma1303->init_vol) {
-		sma1303->cur_vol = sma1303->init_vol;
-		regmap_write(sma1303->regmap,
-			SMA1303_0A_SPK_VOL, sma1303->cur_vol);
-	}
 
 	if (~over_temp & OT1_OK_STATUS) {
 		dev_crit(sma1303->dev,
 			"%s : OT1(Over Temperature Level 1)\n", __func__);
+
 		/* Volume control (Current Volume -3dB) */
-		regmap_write(sma1303->regmap,
-			SMA1303_0A_SPK_VOL, sma1303->cur_vol + 6);
-	} else {
+		if ((sma1303->cur_vol + 6) <= 0xFF)
+			regmap_write(sma1303->regmap,
+				SMA1303_0A_SPK_VOL, sma1303->cur_vol + 6);
+
+		sma1303->tsdw_cnt++;
+	} else if (sma1303->tsdw_cnt) {
 		regmap_write(sma1303->regmap,
 			SMA1303_0A_SPK_VOL, sma1303->init_vol);
+		sma1303->tsdw_cnt = 0;
+		sma1303->cur_vol = sma1303->init_vol;
 	}
 
 	if (~over_temp & OT2_OK_STATUS) {
@@ -2747,9 +2828,13 @@ static int sma1303_reset(struct snd_soc_codec *codec)
 {
 	struct sma1303_priv *sma1303 = snd_soc_codec_get_drvdata(codec);
 	int ret;
-	unsigned int status;
+	unsigned int status, otp_stat;
 
 	dev_info(codec->dev, "%s\n", __func__);
+
+	/* I2C Register Reset */
+	regmap_update_bits(sma1303->regmap,
+		SMA1303_00_SYSTEM_CTRL, RESETBYI2C_MASK, RESETBYI2C_RESET);
 
 	ret = regmap_read(sma1303->regmap, SMA1303_FF_DEVICE_INDEX, &status);
 
@@ -2764,6 +2849,16 @@ static int sma1303_reset(struct snd_soc_codec *codec)
 	else if (sma1303->rev_num == REV_NUM_TV1)
 		dev_info(sma1303->dev, "SMA1303 Trimming Version 1\n");
 
+	regmap_read(sma1303->regmap, SMA1303_FB_STATUS2, &otp_stat);
+
+	if (((sma1303->rev_num == REV_NUM_TV0) &&
+		((otp_stat & 0x0E) == OTP_STAT_OK_0)) ||
+		((sma1303->rev_num != REV_NUM_TV0) &&
+		((otp_stat & 0x0C) == OTP_STAT_OK_1)))
+		dev_info(sma1303->dev, "SMA1303 OTP Status Successful\n");
+	else
+		dev_info(sma1303->dev, "SMA1303 OTP Status Fail\n");
+
 	regmap_write(sma1303->regmap, SMA1303_00_SYSTEM_CTRL, 0x80);
 	/* Volume control (-0.5dB) */
 	regmap_write(sma1303->regmap, SMA1303_0A_SPK_VOL, sma1303->init_vol);
@@ -2776,8 +2871,8 @@ static int sma1303_reset(struct snd_soc_codec *codec)
 	regmap_update_bits(sma1303->regmap,
 		SMA1303_0C_BST_TEST1, EN_SH_PRT_MASK, EN_SH_PRT_DISABLE);
 
-	/* VOL_SLOPE - Fast, MUTE_SLOPE - Fast */
-	regmap_write(sma1303->regmap, SMA1303_0E_MUTE_VOL_CTRL,	0xFF);
+	/* VOL_SLOPE - Off, MUTE_SLOPE - Fast */
+	regmap_write(sma1303->regmap, SMA1303_0E_MUTE_VOL_CTRL,	0x3F);
 
 	/* Mono for one chip solution */
 	regmap_write(sma1303->regmap, SMA1303_10_SYSTEM_CTRL1, 0x04);
@@ -2818,9 +2913,9 @@ static int sma1303_reset(struct snd_soc_codec *codec)
 	 */
 	regmap_write(sma1303->regmap, SMA1303_90_POSTSCALER, 0x26);
 
-	/* Attack level - 0.5FS, Release time - 40ms(48kHz)
+	/* Attack level - 0.25FS, Release time - 40ms(48kHz)
 	 */
-	regmap_write(sma1303->regmap, SMA1303_91_CLASS_G_CTRL, 0x82);
+	regmap_write(sma1303->regmap, SMA1303_91_CLASS_G_CTRL, 0x42);
 
 	/* Filtered VDD gain control 3.1V */
 	regmap_write(sma1303->regmap, SMA1303_92_FDPEC_CTRL, 0xE0);
@@ -2851,19 +2946,13 @@ static int sma1303_reset(struct snd_soc_codec *codec)
 	/* Trimming of driver deadtime - 10.0ns, switching slew - 2.6ns */
 	regmap_write(sma1303->regmap, SMA1303_96_BOOST_CTRL3, 0x42);
 
+	/* PLL Lock disable */
+	regmap_update_bits(sma1303->regmap,
+			SMA1303_A2_TOP_MAN1, PLL_LOCK_SKIP_MASK,
+			PLL_LOCK_DISABLE);
+
 	dev_info(sma1303->dev,
 		"%s init_vol is 0x%x\n", __func__, sma1303->init_vol);
-
-	if (sma1303->check_fault_status) {
-		if (sma1303->check_fault_period > 0)
-			queue_delayed_work(system_freezable_wq,
-				&sma1303->check_fault_work,
-					sma1303->check_fault_period * HZ);
-		else
-			queue_delayed_work(system_freezable_wq,
-				&sma1303->check_fault_work,
-					CHECK_PERIOD_TIME * HZ);
-	}
 
 	return 0;
 }
@@ -2900,6 +2989,8 @@ static int sma1303_probe(struct snd_soc_codec *codec)
 		strcat(dapm_widget_str, " SPK");
 
 		snd_soc_dapm_ignore_suspend(dapm, dapm_widget_str);
+
+		kfree(dapm_widget_str);
 	} else {
 		snd_soc_dapm_ignore_suspend(dapm, "Playback");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK");
@@ -2918,8 +3009,8 @@ static int sma1303_remove(struct snd_soc_codec *codec)
 
 	dev_info(codec->dev, "%s\n", __func__);
 
+	cancel_delayed_work_sync(&sma1303->check_fault_work);
 	sma1303_set_bias_level(codec, SND_SOC_BIAS_OFF);
-	devm_kfree(sma1303->dev, sma1303);
 
 	return 0;
 }
@@ -3040,7 +3131,7 @@ int sma1303_i2c_probe(struct i2c_client *client,
 	u32 value;
 	unsigned int device_info;
 
-	dev_info(&client->dev, "%s is here. Driver version REV003\n", __func__);
+	dev_info(&client->dev, "%s is here. Driver version REV010_PS\n", __func__);
 
 	sma1303 = devm_kzalloc(&client->dev, sizeof(struct sma1303_priv),
 							GFP_KERNEL);
@@ -3132,7 +3223,9 @@ int sma1303_i2c_probe(struct i2c_client *client,
 	/* set initial value as normal AMP IC status */
 	sma1303->last_over_temp = 0xC0;
 	sma1303->last_ocp_val = 0x0A;
+	sma1303->tsdw_cnt = 0;
 	sma1303->cur_vol = sma1303->init_vol;
+	sma1303->last_bclk = 0;
 
 	INIT_DELAYED_WORK(&sma1303->check_fault_work,
 		sma1303_check_fault_worker);
@@ -3184,6 +3277,8 @@ int sma1303_i2c_remove(struct i2c_client *client)
 		(struct sma1303_priv *) i2c_get_clientdata(client);
 
 	dev_info(&client->dev, "%s\n", __func__);
+
+	cancel_delayed_work_sync(&sma1303->check_fault_work);
 
 	if (sma1303)
 		devm_kfree(&client->dev, sma1303);

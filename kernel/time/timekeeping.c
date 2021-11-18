@@ -1560,8 +1560,9 @@ static void __timekeeping_inject_sleeptime(struct timekeeper *tk,
 	tk_update_sleep_time(tk, timespec64_to_ktime(*delta));
 #if IS_ENABLED(CONFIG_SEC_PM)
 	sleep_duration = *delta;
-	printk_deferred("PM: Timekeeping suspended for %lld.%03lu seconds\n",
-			   (s64)sleep_duration.tv_sec, sleep_duration.tv_nsec / NSEC_PER_MSEC);
+	if (timespec64_to_ns(&sleep_duration) > 0)
+		printk_deferred("PM: Timekeeping suspended for %lld.%03lu seconds\n",
+				   (s64)sleep_duration.tv_sec, sleep_duration.tv_nsec / NSEC_PER_MSEC);
 #else
 	tk_debug_account_sleep_time(delta);
 #endif

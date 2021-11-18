@@ -46,7 +46,8 @@
 #define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (8)
 #define CMDQ_MIN_SECURE_THREAD_ID	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
 
-#if IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785)
+#if IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785) || \
+	IS_ENABLED(CONFIG_MACH_MT6768)
 /* primary disp / secondary disp / mdp / isp fd */
 #define CMDQ_MAX_SECURE_THREAD_COUNT	(4)
 #else
@@ -393,6 +394,8 @@ struct cmdqSecDataStruct {
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
 
+	uint64_t enginesDisableDAPC;
+	uint64_t enginesDisablePortSecurity;
 	/* [Reserved] This is for CMDQ driver usage itself. Not for client.
 	 * task index in thread's tasklist. -1 for not in tasklist.
 	 */
@@ -404,11 +407,11 @@ struct cmdqSecDataStruct {
 	struct cmdqSecIspMeta ispMeta;
 
 	/* client extension feature */
-    uint64_t extension;
-#ifdef MTK_IN_HOUSE_TEE
-    uint32_t secMode;
-#endif
-    bool mtee;
+	uint64_t extension;
+	#ifdef MTK_IN_HOUSE_TEE
+	uint32_t secMode;
+	#endif
+	bool mtee;
 };
 
 struct cmdq_v3_replace_struct {

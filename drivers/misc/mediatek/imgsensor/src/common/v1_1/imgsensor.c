@@ -41,6 +41,7 @@
 #include "kd_imgsensor_define.h"
 #include "kd_camera_feature.h"
 #include "kd_imgsensor_errcode.h"
+#include "kd_imgsensor_sysfs_adapter.h"
 
 #include "imgsensor_cfg_table.h"
 #include "imgsensor_sensor_list.h"
@@ -1834,10 +1835,10 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 
 			int cal_read_size        = buf_size - HEADER_SIZE;
 
-			const int EEPROM_SIZE    = imgsensor_get_cal_size_by_sensor_idx(pFeatureCtrl->InvokeCamera);
+			const int EEPROM_SIZE    = IMGSENSOR_GET_CAL_SIZE_BY_SENSOR_IDX(pFeatureCtrl->InvokeCamera);
 			char *rom_cal_buf        = NULL;
 
-			imgsensor_get_cal_buf_by_sensor_idx(pFeatureCtrl->InvokeCamera, &rom_cal_buf);
+			IMGSENSOR_GET_CAL_BUF_BY_SENSOR_IDX(pFeatureCtrl->InvokeCamera, &rom_cal_buf);
 
 			pr_info("[CAMERA_HW] GET_4CELL_DATA - camera=%d, buf_size=%d, actual read = header(%d) + cal read(%d of %d(0x%X~0x%X))\n",
 				pFeatureCtrl->InvokeCamera, buf_size, HEADER_SIZE, cal_read_size, CAL_SIZE, OFFSET_START, OFFSET_END);
@@ -2376,7 +2377,7 @@ static int imgsensor_probe(struct platform_device *pplatform_device)
 	imgsensor_i2c_create();
 	imgsensor_proc_init();
 	imgsensor_init_sensor_list();
-	cam_info_probe(pdevice->of_node);
+	CAM_INFO_PROB(pdevice->of_node);
 
 #ifdef IMGSENSOR_OC_ENABLE
 	imgsensor_oc_init();

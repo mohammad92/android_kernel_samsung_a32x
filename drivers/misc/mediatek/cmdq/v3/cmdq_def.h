@@ -38,7 +38,8 @@
 #define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (8)
 #define CMDQ_MIN_SECURE_THREAD_ID	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
 
-#if IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785)
+#if IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785) || \
+	IS_ENABLED(CONFIG_MACH_MT6768)
 /* primary disp / secondary disp / mdp / isp fd */
 #define CMDQ_MAX_SECURE_THREAD_COUNT	(4)
 #else
@@ -72,7 +73,7 @@
 #define CMDQ_MAX_INST_CYCLE             (27)
 #define CMDQ_MAX_ERROR_SIZE             (8 * 1024)
 
-#define CMDQ_MAX_TASK_IN_SECURE_THREAD	(3)
+#define CMDQ_MAX_TASK_IN_SECURE_THREAD_MAX (10)
 
 /* max value of CMDQ_THR_EXEC_CMD_CNT (value starts from 0) */
 #ifdef CMDQ_USE_LARGE_MAX_COOKIE
@@ -444,6 +445,8 @@ struct cmdqSecDataStruct {
 
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
+	uint64_t enginesDisableDAPC;
+	uint64_t enginesDisablePortSecurity;
 
 	/* [Reserved] This is for CMDQ driver usage itself. Not for client.
 	 * task index in thread's tasklist. -1 for not in tasklist.

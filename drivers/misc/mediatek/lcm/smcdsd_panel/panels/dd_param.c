@@ -64,7 +64,7 @@ static ssize_t param_write(struct file *f, const char __user *user_buf,
 	struct params_list_info *params_list = ((struct seq_file *)f->private_data)->private;
 	struct param_info *param = NULL;
 
-	unsigned char ibuf[MAX_INPUT] = {0, };
+	char ibuf[MAX_INPUT] = {0, };
 	unsigned int tbuf[MAX_INPUT] = {0, };
 	unsigned int value = 0, end = 0, input_w = 0, input_h = 0, offset_w = 0, offset_h = 0, param_old, param_new;
 	char *pbuf, *token = NULL;
@@ -76,7 +76,7 @@ static ssize_t param_write(struct file *f, const char __user *user_buf,
 		goto exit;
 	}
 
-	if (!strncmp(ibuf, "0", count - 1)) {
+	if (sysfs_streq(ibuf, "0")) {
 		dbg_info("input is 0(zero). reset param to default\n");
 
 		list_for_each_entry(param, &params_list->node, node) {

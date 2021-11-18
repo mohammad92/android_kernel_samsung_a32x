@@ -21,25 +21,16 @@
 #define __S2MU106_MUIC_H__
 
 #include <linux/wakelock.h>
-#include <linux/muic/muic.h>
-#include <linux/muic/muic_interface.h>
+#include <linux/ssdev_in_mtk/muic/muic.h>
+#include <linux/ssdev_in_mtk/muic/muic_interface.h>
 #if defined (CONFIG_HV_MUIC_S2MU106_AFC)
-#include <linux/muic/s2mu106-muic-hv.h>
+#include <linux/ssdev_in_mtk/muic/s2mu106-muic-hv.h>
 #endif
 #if IS_ENABLED(CONFIG_S2MU106_TYPEC_WATER)
 #include <linux/time.h>
 #endif
 
 #define MUIC_DEV_NAME	"muic-s2mu106"
-
-#define MASK_1b		(0x1)
-#define MASK_2b		(0x3)
-#define MASK_3b		(0x7)
-#define MASK_4b		(0xf)
-#define MASK_5b		(0x1f)
-#define MASK_6b		(0x3f)
-#define MASK_7b		(0x7f)
-#define MASK_8b		(0xff)
 
 enum s2mu106_muic_registers {
 	S2MU106_REG_AFC_INT = 0x0,

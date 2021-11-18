@@ -110,10 +110,13 @@ static void _lm36274_init(void)
 /*****************************************************************************
  * I2C Interface Function
  *****************************************************************************/
-#define BOARD_ID_BRINGUP1    0
-#define BOARD_ID_BRINGUP2    1
-#define BOARD_ID_BRINGUP3    2
-#define BOARD_ID_REV00       3
+/* bitfield: GPIO173, GPIO174, GPIO175, GPIO176 */
+#define BOARD_HW_REV_BRINGUP1     (0b0000)
+#define BOARD_HW_REV_BRINGUP2     (0b0001)
+#define BOARD_HW_REV_BRINGUP3     (0b0010)
+#define BOARD_HW_REV_00           (0b0011)
+#define BOARD_HW_REV_01           (0b0100)
+#define BOARD_HW_REV_02           (0b0101)
 
 static int _lcm_i2c_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
@@ -140,10 +143,10 @@ static int _lcm_i2c_probe(struct i2c_client *client,
 		pr_info("Get HW version = %d\n", hw_version);
 	}
 	
-	if (hw_version == BOARD_ID_BRINGUP1 || hw_version == BOARD_ID_BRINGUP2
-		|| hw_version == BOARD_ID_BRINGUP3) {
+	if (hw_version == BOARD_HW_REV_BRINGUP1 || hw_version == BOARD_HW_REV_BRINGUP2
+		|| hw_version == BOARD_HW_REV_BRINGUP3) {
 		pr_info("td4150 : %s : board revision and LCM match\n", __func__);
-		return 1;
+		return 0;
 	}
 	
 	pr_info("td4150 : %s : board revision and LCM doesn't match.\n", __func__);

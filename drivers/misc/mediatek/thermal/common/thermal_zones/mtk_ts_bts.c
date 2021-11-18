@@ -641,6 +641,10 @@ static int get_hw_bts_temp(void)
 #ifdef MTK_SW_WORKAROUND
 	if (hw_version == 0)
 		return 40;
+#else
+#if defined(CONFIG_MTK_THERMAL_FIX_VALUE)
+	return 40;
+#endif
 #endif
 
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
@@ -753,8 +757,10 @@ int mtkts_bts_get_hw_temp(void)
 
 	bts_cur_temp = t_ret;
 
+#ifndef CONFIG_SEC_PM
 	if (t_ret > 40000)	/* abnormal high temp */
 		mtkts_bts_printk("T_AP=%d\n", t_ret);
+#endif
 
 	mtkts_bts_dprintk("[%s] T_AP, %d\n", __func__, t_ret);
 	return t_ret;

@@ -225,6 +225,8 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 		if (reg_val & (1 << 2)) {
 			mmprofile_log_ex(ddp_mmp_get_events()->DSI_IRQ[index],
 				MMPROFILE_FLAG_PULSE, reg_val, 0);
+			if (!primary_display_is_video_mode() && primary_display_is_tui_started())
+				primary_display_wakeup_pf_thread();
 			//DDPMSG("DSI TE\n");
 		}
 
@@ -373,7 +375,8 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 			rdma_start_time[index] = sched_clock();
 			DDPIRQ("IRQ: RDMA%d frame start!\n", index);
 			rdma_start_irq_cnt[index]++;
-			primary_display_wakeup_pf_thread();
+			if (!primary_display_is_video_mode() && !primary_display_is_tui_started())
+				primary_display_wakeup_pf_thread();
 		}
 		if (reg_val & (1 << 3)) {
 			mmprofile_log_ex(

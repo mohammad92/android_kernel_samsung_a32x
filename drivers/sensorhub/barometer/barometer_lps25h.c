@@ -78,7 +78,7 @@ ssize_t set_barometer_lps25h_calibration(struct ssp_data *data, const char *buf)
         return ret;
 }
 
-ssize_t get_barometer_lps22h_selftest(struct ssp_data *data, char *buf)
+ssize_t get_barometer_lps25h_selftest(struct ssp_data *data, char *buf)
 {
         char *buffer = NULL;
         int buffer_length = 0;
@@ -121,7 +121,7 @@ struct barometer_sensor_operations barometer_lps25h_ops = {
         .set_barometer_calibration = set_barometer_lps25h_calibration,
         .set_barometer_sea_level_pressure = set_barometer_lps25h_sea_level_pressure,
         .get_barometer_temperature = get_barometer_lps25h_temperature,
-        .get_barometer_selftest = get_barometer_lps22h_selftest,
+        .get_barometer_selftest = get_barometer_lps25h_selftest,
 };
 
 struct barometer_sensor_operations* get_barometer_lps25h_function_pointer(struct ssp_data *data)

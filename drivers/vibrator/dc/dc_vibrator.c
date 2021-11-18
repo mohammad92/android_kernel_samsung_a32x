@@ -23,15 +23,10 @@
 #include <linux/vibrator/sec_vibrator.h>
 #define DC_VIB_NAME "dc_vib"
 
-void __ss_vib_ldo_enable(bool enable) {}
-void ss_vib_ldo_enable(bool enable)
-	__attribute__((weak, alias("__ss_vib_ldo_enable")));
-
 struct dc_vib_pdata {
 	const char *regulator_name;
 	struct regulator *regulator;
 	int gpio_en;
-	bool use_qc_regulator;
 	const char *motor_type;
 };
 
@@ -48,10 +43,6 @@ static int dc_vib_enable(struct device *dev, bool en)
 	if (en) {
 		if (ddata->running)
 			return 0;
-		if (ddata->pdata->use_qc_regulator) {
-			pr_info("%s: qc_regulator on\n", __func__);
-			ss_vib_ldo_enable(true);
-		}
 		if (ddata->pdata->regulator) {
 			pr_info("%s: regulator on\n", __func__);
 			if (!regulator_is_enabled(ddata->pdata->regulator))
@@ -73,10 +64,6 @@ static int dc_vib_enable(struct device *dev, bool en)
 			pr_info("%s: regulator off\n", __func__);
 			if (regulator_is_enabled(ddata->pdata->regulator))
 				regulator_disable(ddata->pdata->regulator);
-		}
-		if (ddata->pdata->use_qc_regulator) {
-			pr_info("%s: qc_regulator off\n", __func__);
-			ss_vib_ldo_enable(false);
 		}
 		ddata->running = false;
 	}
@@ -114,13 +101,6 @@ static struct dc_vib_pdata *dc_vib_get_dt(struct device *dev)
 		ret = -ENOMEM;
 		goto err_out;
 	}
-
-	pdata->use_qc_regulator = of_property_read_bool(node,
-			"dc_vib,use_qc_regulator");
-	if (pdata->use_qc_regulator)
-		pr_info("%s: using qc_regulator\n", __func__);
-	else
-		pr_info("%s: qc_regulator isn't used\n", __func__);
 
 	pdata->gpio_en = of_get_named_gpio(node, "dc_vib,gpio_en", 0);
 	if (gpio_is_valid(pdata->gpio_en)) {

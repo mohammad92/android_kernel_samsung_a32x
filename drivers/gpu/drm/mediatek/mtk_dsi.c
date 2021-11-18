@@ -369,6 +369,7 @@ struct mtk_dsi {
 	unsigned int data_phy_cycle;
 	/* for Panel Master dcs read/write */
 	struct mipi_dsi_device *dev_for_PM;
+	atomic_t cmdq_option_enable;
 };
 
 enum DSI_MODE_CON {
@@ -377,6 +378,9 @@ enum DSI_MODE_CON {
 	MODE_CON_SYNC_EVENT_VDO,
 	MODE_CON_BURST_VDO,
 };
+
+static int dsi_dcs_write(struct mtk_dsi *dsi, void *data, size_t len);
+static int dsi_dcs_read(struct mtk_dsi *dsi, uint8_t cmd, void *data, size_t len);
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
 
@@ -1928,6 +1932,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 	if (!dsi->output_en)
 		return;
 
+	atomic_set(&dsi->cmdq_option_enable, 1);
 	mtk_drm_crtc_wait_blank(mtk_crtc);
 
 	/* 1. If not doze mode, turn off backlight */
@@ -1937,7 +1942,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 			return;
 		}
 	}
-
+	atomic_set(&dsi->cmdq_option_enable, 0);
 	/* 2. If VDO mode, stop it and set to CMD mode */
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
 		mtk_dsi_stop_vdo_mode(dsi, NULL);
@@ -2559,7 +2564,6 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 
 	if (get_panel_ext) {
 		cur_panel_params = get_panel_ext->params;
-		adjust_panel_params = get_panel_ext->params;
 	}
 
 	if (panel_ext && panel_ext->funcs &&
@@ -2571,6 +2575,10 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	if (new_get_sta)
 		DDPINFO("%s,error:not support dst MODE:(%d)\n", __func__,
 			dst_mode_idx);
+
+	if (get_panel_ext) {
+		adjust_panel_params = get_panel_ext->params;
+	}
 
 	if (!(dsi->mipi_hopping_sta && adjust_panel_params &&
 		cur_panel_params && cur_panel_params->dyn.switch_en &&
@@ -2617,6 +2625,7 @@ unsigned int mtk_dsi_fps_change_index(struct mtk_dsi *dsi,
 	}
 
 	mtk_crtc->fps_change_index = fps_chg_index;
+	mtk_notifier_call_chain(MTK_FPS_CHANGE, (void *)&adjust_mode->vrefresh);
 	DDPINFO("%s,chg %d->%d\n", __func__, old_mode->vrefresh,
 		adjust_mode->vrefresh);
 	DDPINFO("%s,mipi_hopping_sta %d,chg solution:0x%x\n", __func__,
@@ -4587,6 +4596,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	struct drm_display_mode **mode;
 	bool *enable;
 	unsigned int vfp_low_power = 0;
+	int i = 0;
 
 	switch (cmd) {
 	case REQ_PANEL_EXT:
@@ -4980,6 +4990,43 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			(struct mtk_ddic_dsi_msg *)params;
 
 		return mtk_mipi_dsi_read_gce(dsi, handle, crtc, cmd_msg);
+	}
+		break;
+	case SET_LCM_DCS_CMD:
+	{
+		struct mtk_ddic_dsi_msg *cmd_msg =
+			(struct mtk_ddic_dsi_msg *)params;
+
+		for (i = 0; i < cmd_msg->tx_cmd_num; i++) {
+			void *tx = (void *)cmd_msg->tx_buf[i];
+
+			dsi_dcs_write(dsi, tx, cmd_msg->tx_len[i]);
+		}
+	}
+		break;
+	case READ_LCM_DCS_CMD:
+	{
+		struct mtk_ddic_dsi_msg *cmd_msg =
+			(struct mtk_ddic_dsi_msg *)params;
+
+		for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+			uint8_t *tx = (uint8_t *)cmd_msg->tx_buf[i];
+			int array[1] = {0};
+
+			array[0] = 0x3700 + (1 << 16);
+			dsi_dcs_write(dsi, array, 3);
+			dsi_dcs_read(dsi, *tx,
+				cmd_msg->rx_buf[i], cmd_msg->rx_len[i]);
+		}
+	}
+		break;
+	case READ_CMDQ_OPTION:
+	{
+		int *cmdq_option = 0;
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		cmdq_option = (int *)params;
+		*cmdq_option = atomic_read(&dsi->cmdq_option_enable);
 	}
 		break;
 	case DSI_GET_VIRTUAL_HEIGH:

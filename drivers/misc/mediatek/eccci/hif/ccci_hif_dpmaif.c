@@ -3342,7 +3342,9 @@ alloc_retry2:
 static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 {
 	int ret = 0;
+#ifdef PIT_USING_CACHE_MEM
 	int retry = 0;
+#endif
 
 	/* PIT buffer init */
 	rxq->pit_size_cnt = DPMAIF_DL_PIT_ENTRY_SIZE;

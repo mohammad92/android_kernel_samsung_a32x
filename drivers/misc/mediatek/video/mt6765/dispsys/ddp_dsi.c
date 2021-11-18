@@ -2658,7 +2658,7 @@ UINT32 DSI_dcs_read_lcm_reg_v3(enum DISP_MODULE_ENUM module,
 }
 
 void DSI_set_cmdq_V2(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
-	unsigned int cmd, unsigned char count, unsigned char *para_list,
+	unsigned int cmd, unsigned int count, unsigned char *para_list,
 	unsigned char force_update)
 {
 	UINT32 i = 0;
@@ -2927,7 +2927,8 @@ void DSI_set_cmdq_V3(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	/* DSI_T1_INS t1; */
 	struct DSI_T2_INS t2;
 	UINT32 index = 0;
-	unsigned char data_id, cmd, count;
+	unsigned char data_id, cmd;
+	unsigned int count;
 	unsigned char *para_list;
 	UINT32 d;
 
@@ -3076,7 +3077,7 @@ void DSI_set_cmdq_V4(enum DISP_MODULE_ENUM module,
 	int d = 0;
 	unsigned long goto_addr, mask_para, set_para;
 	unsigned int cmd;
-	unsigned char count;
+	unsigned int count;
 	unsigned char *para_list;
 	unsigned char virtual_channel;
 	struct DSI_T0_INS t0;
@@ -3094,7 +3095,7 @@ void DSI_set_cmdq_V4(enum DISP_MODULE_ENUM module,
 		return;
 
 	cmd = cmds->dtype;
-	count = (unsigned char)cmds->dlen;
+	count = cmds->dlen;
 	para_list = cmds->payload;
 	virtual_channel = (unsigned char)cmds->vc;
 
@@ -3386,7 +3387,7 @@ void DSI_set_cmdq_V4(enum DISP_MODULE_ENUM module,
 static void DSI_send_vm_cmd(struct cmdqRecStruct *cmdq,
 				enum DISP_MODULE_ENUM module,
 				unsigned char data_id, unsigned int cmd,
-				unsigned char count, unsigned char *para_list,
+				unsigned int count, unsigned char *para_list,
 				unsigned char force_update)
 {
 	UINT32 i = 0;
@@ -3465,7 +3466,7 @@ static void DSI_send_vm_cmd(struct cmdqRecStruct *cmdq,
 static void DSI_send_cmd_cmd(struct cmdqRecStruct *cmdq,
 			enum DISP_MODULE_ENUM module,
 			bool hs, unsigned char data_id,
-			unsigned int cmd, unsigned char count,
+			unsigned int cmd, unsigned int count,
 			unsigned char *para_list,
 			unsigned char force_update)
 {
@@ -3565,7 +3566,8 @@ static void DSI_set_cmdq_serially(enum DISP_MODULE_ENUM module,
 	/* vdo LP set only support CMDQ version */
 	int dsi_i = 0;
 	UINT32 index = 0;
-	unsigned char data_id, cmd, count;
+	unsigned char data_id, cmd;
+	unsigned int count;
 	unsigned char *para_list;
 
 	if (module == DISP_MODULE_DSI0 || module == DISP_MODULE_DSIDUAL)
@@ -4052,21 +4054,21 @@ void DSI_set_cmdq_V11_wrapper_DSI1(void *cmdq, unsigned int *pdata,
 	DSI_set_cmdq(DISP_MODULE_DSI1, cmdq, pdata, queue_size, force_update);
 }
 
-void DSI_set_cmdq_V2_DSI0(void *cmdq, unsigned int cmd, unsigned char count,
+void DSI_set_cmdq_V2_DSI0(void *cmdq, unsigned int cmd, unsigned int count,
 	unsigned char *para_list, unsigned char force_update)
 {
 	DSI_set_cmdq_V2(DISP_MODULE_DSI0, cmdq, cmd, count, para_list,
 		force_update);
 }
 
-void DSI_set_cmdq_V2_DSI1(void *cmdq, unsigned int cmd, unsigned char count,
+void DSI_set_cmdq_V2_DSI1(void *cmdq, unsigned int cmd, unsigned int count,
 	unsigned char *para_list, unsigned char force_update)
 {
 	DSI_set_cmdq_V2(DISP_MODULE_DSI1, cmdq, cmd, count, para_list,
 		force_update);
 }
 
-void DSI_set_cmdq_V2_DSIDual(void *cmdq, unsigned int cmd, unsigned char count,
+void DSI_set_cmdq_V2_DSIDual(void *cmdq, unsigned int cmd, unsigned int count,
 	unsigned char *para_list, unsigned char force_update)
 {
 	DSI_set_cmdq_V2(DISP_MODULE_DSIDUAL, cmdq, cmd, count, para_list,
@@ -4088,21 +4090,21 @@ void DSI_set_cmdq_V4_DSIDual(void *cmdq, struct dsi_cmd_desc *cmds)
 	DSI_set_cmdq_V4(DISP_MODULE_DSIDUAL, cmdq, cmds);
 }
 
-void DSI_set_cmdq_V2_Wrapper_DSI0(unsigned int cmd, unsigned char count,
+void DSI_set_cmdq_V2_Wrapper_DSI0(unsigned int cmd, unsigned int count,
 	unsigned char *para_list, unsigned char force_update)
 {
 	DSI_set_cmdq_V2(DISP_MODULE_DSI0, NULL, cmd, count, para_list,
 		force_update);
 }
 
-void DSI_set_cmdq_V2_Wrapper_DSI1(unsigned int cmd, unsigned char count,
+void DSI_set_cmdq_V2_Wrapper_DSI1(unsigned int cmd, unsigned int count,
 	unsigned char *para_list, unsigned char force_update)
 {
 	DSI_set_cmdq_V2(DISP_MODULE_DSI1, NULL, cmd, count, para_list,
 		force_update);
 }
 
-void DSI_set_cmdq_V2_Wrapper_DSIDual(unsigned int cmd, unsigned char count,
+void DSI_set_cmdq_V2_Wrapper_DSIDual(unsigned int cmd, unsigned int count,
 	unsigned char *para_list, unsigned char force_update)
 {
 	DSI_set_cmdq_V2(DISP_MODULE_DSIDUAL, NULL, cmd, count, para_list,
@@ -6223,7 +6225,7 @@ int ddp_dsi_read_lcm_cmdq_v1(enum DISP_MODULE_ENUM module,
 
 int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, unsigned  char cmd_char,
-	unsigned char count, unsigned char *para_list)
+	unsigned int count, unsigned char *para_list)
 {
 	UINT32 i = 0;
 	int d = 0;

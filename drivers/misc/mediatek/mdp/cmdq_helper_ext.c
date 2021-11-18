@@ -74,6 +74,7 @@ static DEFINE_SPINLOCK(cmdq_record_lock);
 static struct wakeup_source mdp_wake_lock;
 static bool mdp_wake_locked;
 
+
 static struct dma_pool *mdp_rb_pool;
 static atomic_t mdp_rb_pool_cnt;
 static u32 mdp_rb_pool_limit = 256;
@@ -3401,6 +3402,7 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 
 	CMDQ_MSG("[CLOCK]enable usage:%d scenario:%d\n",
 		clock_count, handle->scenario);
+	
 
 	if (clock_count == 1)
 		mdp_lock_wake_lock(true);
@@ -4972,6 +4974,7 @@ void cmdq_core_initialize(void)
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
 	atomic_set(&mdp_rb_pool_cnt, 0);
 
+	
 	wakeup_source_add(&mdp_wake_lock);
 }
 

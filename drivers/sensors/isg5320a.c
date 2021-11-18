@@ -44,7 +44,11 @@
 #define ISG5320A_TAG             "[ISG5320A]"
 
 #define HALLIC_PATH            "/sys/class/sec/hall_ic/hall_detect"
-#define HALLIC_CERT_PATH       "/sys/class/sec/hall_ic/certify_hall_detect"
+#if defined(CONFIG_FLIP_COVER_DETECTOR_FACTORY)
+#define HALLIC_CERT_PATH	"/sys/class/sensors/flip_cover_detector_sensor/nfc_cover_status"
+#else
+#define HALLIC_CERT_PATH	"/sys/class/sec/hall_ic/certify_hall_detect"
+#endif
 
 #define ISG5320A_INIT_DELAYEDWORK
 #define GRIP_LOG_TIME            40 /* 20 sec */
@@ -131,7 +135,7 @@ static int check_hallic_state(char *file_path, unsigned char hall_ic_status[])
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	filep = filp_open(file_path, O_RDONLY, 0666);
+	filep = filp_open(file_path, O_RDONLY, 0440);
 	if (IS_ERR(filep)) {
 		ret = PTR_ERR(filep);
 		set_fs(old_fs);

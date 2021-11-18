@@ -51,7 +51,8 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 	}
 #endif
 	cmdq_log("[SEC]TEE is ready");
-       /* do m4u sec init */
+
+	/* do m4u sec init */
 	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 		m4u_sec_init();
 		cmdq_msg("[SEC] M4U_sec_init is called\n");

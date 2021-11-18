@@ -205,6 +205,9 @@ static int parse_audio_format_rates_v1(struct snd_usb_audio *chip, struct audiof
 			    le16_to_cpu(udev->descriptor.bcdDevice) == 0x49)
 				continue;
 
+			if (rate > 48000)
+				continue;
+
 			fp->rate_table[fp->nr_rates] = rate;
 			if (!fp->rate_min || rate < fp->rate_min)
 				fp->rate_min = rate;
@@ -312,7 +315,8 @@ static int parse_uac2_sample_rate_range(struct snd_usb_audio *chip,
 			if (USB_ID_VENDOR(chip->usb_id) == 0x1235 &&
 			    !focusrite_valid_sample_rate(chip, fp, rate))
 				goto skip_rate;
-
+			if (rate > 48000)
+				break;
 			if (fp->rate_table)
 				fp->rate_table[nr_rates] = rate;
 			if (!fp->rate_min || rate < fp->rate_min)
@@ -577,4 +581,3 @@ int snd_usb_parse_audio_format(struct snd_usb_audio *chip,
 #endif
 	return 0;
 }
-

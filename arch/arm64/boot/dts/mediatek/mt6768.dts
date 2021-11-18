@@ -311,7 +311,7 @@ page_owner=on loop.max_part=7";
 
 		zmc-default {
 			compatible = "mediatek,zone_movable_cma";
-			size = <0 0x2d000000>;
+			size = <0 0x40000000>;
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0xc0000000 4 0x00000000>;
 		};
@@ -337,7 +337,7 @@ page_owner=on loop.max_part=7";
 		sec-autocomment-reserve-memory@0x4B800000 {
 			reg = <0 0x4B800000 0 0x10000>;
 		};
-		
+
 		sec-extrainfo-reserve-memory@0x4B810000 {
 			reg = <0 0x4B810000 0 0x1F0000>;
 		};
@@ -1208,6 +1208,7 @@ page_owner=on loop.max_part=7";
 		disp_mutex_reg = <0x14016000 0x1000>;
 		g3d_config_base = <0x13000000 0 0xffff0000>;
 		mmsys_config_base = <0x14000000 1 0xffff0000>;
+		mipitx0_base = <0x11c80000 99 0xffff0000>;
 		disp_dither_base = <0x14010000 2 0xffff0000>;
 		mm_na_base = <0x14020000 3 0xffff0000>;
 		imgsys_base = <0x15020000 4 0xffff0000>;
@@ -1349,7 +1350,7 @@ page_owner=on loop.max_part=7";
 		sram_share_engine = <13>;
 		sram_share_event = <710>;
 		mediatek,mailbox-gce = <&gce_mbox>;
-		secure_thread = <6 8>;
+		secure_thread = <6 9>;
 		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 2 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 3 0 CMDQ_THR_PRIO_4>,
@@ -1361,12 +1362,14 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			<&gce_mbox_svp 8 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox_svp 9 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox_svp 10 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_svp 11 0 CMDQ_THR_PRIO_1>,
 #else
 			<&gce_mbox 8 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 9 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 10 0 CMDQ_THR_PRIO_1>,
-#endif
 			<&gce_mbox 11 0 CMDQ_THR_PRIO_1>,
+#endif
+
 			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 13 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 14 0 CMDQ_THR_PRIO_1>,
@@ -1940,8 +1943,6 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		pu_cfg = <0x60>;
 		rsel_cfg = <0x90>;
 		aed = <0x1a>;
-		ch_offset_default = <0x100>;
-		ch_offset_ccu = <0x200>;
 	};
 
 	i2c4: i2c4@11011000 {
@@ -2294,7 +2295,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			offset = <0x4>;
 			shift = <8>;
 			mask = <0x7>;
-			value = <0x3>;
+			value = <0x6>;
 		};
 		tune@5 {
 			label = "vrt_ref";
@@ -2315,7 +2316,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			offset = <0x14>;
 			shift = <12>;
 			mask = <0x7>;
-			value = <0x0>;
+			value = <0x1>;
 		};
 		tune@8 {
 			label = "hstx_srcal_en";
@@ -2329,14 +2330,14 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			offset = <0x18>;
 			shift = <0>;
 			mask = <0xf>;
-			value = <0x0>;
+			value = <0x1>;
 		};
 		tune@10 {
 			label = "discth";
 			offset = <0x18>;
 			shift = <4>;
 			mask = <0xf>;
-			value = <0x6>;
+			value = <0xa>;
 		};
 		tune@11 {
 			label = "enhance";
@@ -3371,12 +3372,27 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"CLK_SCP_SYS_CAM";
 	};
 
+
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek,camera_af_lens";
+	};
+
 	flashlight_core: flashlight_core {
 		compatible = "mediatek,flashlight_core";
 	};
 
 	flashlights_sm5714: flashlights_sm5714 {
 		compatible = "mediatek,flashlights_sm5714";
+		decouple = <0>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+	};
+
+	flashlights_s2mu106: flashlights_s2mu106 {
+		compatible = "mediatek,flashlights_s2mu106";
 		decouple = <0>;
 		channel@1 {
 			type = <0>;
@@ -3441,12 +3457,12 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
-		svp-size = <0 0x10000000>;
+		svp-size = <0 0x12000000>;
 		iris-recognition-size = <0 0x10000000>;
 		2d_fr-size = <0 0>;
 		tui-size = <0 0x4000000>;
-		wfd-size = <0 0x4000000>;
-		prot-sharedmem-size = <0 0x8000000>;
+		wfd-size = <0 0x6000000>;
+		prot-sharedmem-size = <0 0xC000000>;
 		ta-elf-size = <0 0x1000000>;
 		ta-stack-heap-size = <0 0x6000000>;
 		sdsp-tee-sharedmem-size = <0 0x1000000>;

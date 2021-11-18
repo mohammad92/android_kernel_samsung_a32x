@@ -16,19 +16,31 @@
 #include <linux/sizes.h>
 
 #include "mt-plat/aee.h"
+#if defined (CONFIG_MACH_MT6739)
+#include "mt-plat/mt6739/include/mach/upmu_hw.h"
+#elif defined (CONFIG_MACH_MT6768)
 #include "mt-plat/mt6768/include/mach/upmu_hw.h"
+#elif defined (CONFIG_MACH_MT6853)
+#include "mt-plat/mt6853/include/mach/upmu_hw.h"
+#else
+#include "mt-plat/mt6768/include/mach/upmu_hw.h"
+#endif
 
 /* RESERVED MEMORY BASE ADDRESS */
-//#define LK_RSV_ADDR		0x46C08000
-//#define LK_RSV_SIZE		0x600000
 #define SEC_LOG_BASE				0x4B000000    /* SZ_2M */
 #define SEC_LASTKMSG_BASE			0x4B200000    /* SZ_2M */
 #define SEC_LOGGER_BASE				0x4B400000    /* SZ_4M */
-#define SEC_AUTO_COMMENT_BASE		0x4B800000    /* SZ_4K */
-#define SEC_EXTRA_INFO_BASE			0x4B810000    /* SZ_4M - SZ_64K */
-
+#ifdef CONFIG_SEC_DEBUG_AUTO_COMMENT
+#define SEC_AUTO_COMMENT_BASE		0x4B800000    /* SZ_64K */
+#endif
+#ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
+#define SEC_EXTRA_INFO_BASE			0x4B810000    /* SZ_2M - SZ_64K */
+#endif
 #ifdef CONFIG_SEC_DEBUG_INIT_LOG
 #define SEC_INIT_LOG_BASE				0x4BA00000    /* SZ_2M */
+#endif
+#ifdef CONFIG_SEC_DEBUG_HIST_LOG
+#define SEC_HIST_LOG_BASE				0x4B900000    /* SZ_512K */
 #endif
 
 /* +++ MediaTek Feature +++ */
@@ -372,6 +384,80 @@ typedef struct sec_logger {
 	void		(*func_hook_logger)(const char*, size_t);
 } __attribute__((__packed__)) sec_logger;
 
+#if defined (CONFIG_MACH_MT6739)
+typedef struct {
+	/* COMMON */
+	unsigned int r0;
+	unsigned int r1;
+	unsigned int r2;
+	unsigned int r3;
+	unsigned int r4;
+	unsigned int r5;
+	unsigned int r6;
+	unsigned int r7;
+	unsigned int r8;
+	unsigned int r9;
+	unsigned int r10;
+	unsigned int r11;
+	unsigned int r12;
+	/* SVC */
+	unsigned int r13_svc;
+	unsigned int r14_svc;
+	unsigned int spsr_svc;
+	/* PC & CPSR */
+	unsigned int pc;
+	unsigned int cpsr;
+	/* USR/SYS */
+	unsigned int r13_usr;
+	unsigned int r14_usr;
+	/* FIQ */
+	unsigned int r8_fiq;
+	unsigned int r9_fiq;
+	unsigned int r10_fiq;
+	unsigned int r11_fiq;
+	unsigned int r12_fiq;
+	unsigned int r13_fiq;
+	unsigned int r14_fiq;
+	unsigned int spsr_fiq;
+	/* IRQ */
+	unsigned int r13_irq;
+	unsigned int r14_irq;
+	unsigned int spsr_irq;
+	/* MON */
+	unsigned int r13_mon;
+	unsigned int r14_mon;
+	unsigned int spsr_mon;
+	/* ABT */
+	unsigned int r13_abt;
+	unsigned int r14_abt;
+	unsigned int spsr_abt;
+	/* UNDEF */
+	unsigned int r13_und;
+	unsigned int r14_und;
+	unsigned int spsr_und;
+} sec_debug_core_reg_t;
+
+typedef struct {
+	int SCTLR;
+	int TTBR0;
+	int TTBR1;
+	int TTBCR;
+	int DACR;
+	int DFSR;
+	int DFAR;
+	int IFSR;
+	int IFAR;
+	int DAFSR;
+	int IAFSR;
+	int PMRRR;
+	int NMRRR;
+	int FCSEPID;
+	int CONTEXT;
+	int URWTPID;
+	int UROTPID;
+	int POTPIDR;
+} sec_debug_mmu_reg_t;
+#else
 typedef struct {
 	u64 regs[31];
 	u64 sp_el1;
@@ -396,6 +482,7 @@ typedef struct {
 	long TPIDR_EL1;
 	long MAIR_EL1;
 } sec_debug_mmu_reg_t;
+#endif
 
 enum sec_debug_reset_reason_t {
 	RR_S = 1,
@@ -411,7 +498,7 @@ enum sec_debug_reset_reason_t {
 	RR_C = 11,
 };
 
-extern unsigned reset_reason;
+extern unsigned int reset_reason;
 
 #ifdef CONFIG_SEC_DEBUG_EXTRA_INFO
 
@@ -497,7 +584,7 @@ struct sec_debug_auto_comment {
 	int tail_magic;
 };
 
-#define AC_SIZE 0xf3c
+#define AC_SIZE 0x2000
 #define AC_MAGIC 0xcafecafe
 #define AC_TAIL_MAGIC 0x00c0ffee
 #define AC_EDATA_MAGIC 0x43218765
@@ -630,7 +717,7 @@ extern union sec_debug_level_t sec_debug_level;
 #else
 #define SEC_DEBUG_LEVEL(x)	0
 #endif
-extern void sec_dump_task_info(void);
+extern void sec_debug_dump_info(void);
 extern void sec_upload_cause(void *buf);
 extern void sec_debug_check_crash_key(unsigned int code, int value);
 extern void register_log_text_hook(void (*f)(char *text, size_t size));
@@ -673,6 +760,12 @@ extern void sec_debug_avc_log(char *fmt, ...);
 extern void sec_debug_save_last_kmsg(unsigned char* head_ptr, unsigned char* curr_ptr);
 #else
 #define sec_debug_save_last_kmsg(a, b)		do { } while(0)
+#endif
+
+#ifdef CONFIG_SEC_DEBUG_SOFTDOG
+extern void secdbg_softdog_show_info(void);
+#else
+#define secdbg_softdog_show_info()		do { } while (0)
 #endif
 
 #endif /* SEC_DEBUG_H */

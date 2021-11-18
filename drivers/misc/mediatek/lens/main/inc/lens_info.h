@@ -48,6 +48,7 @@
 #define AFDRV_DW9800WAF "DW9800WAF"
 #define AFDRV_DW9719TAF "DW9719TAF"
 #define AFDRV_DW9814AF "DW9814AF"
+#define AFDRV_DW9825AF_OIS_MCU "DW9825AF_OIS_MCU"
 #define AFDRV_DW9839AF "DW9839AF"
 #define AFDRV_FP5510E2AF "FP5510E2AF"
 #define AFDRV_FP5529AF "FP5529AF"
@@ -218,5 +219,10 @@ struct stAF_MotorI2CSendCmd {
 #define AFIOC_G_GETDRVNAME _IOWR(AF_MAGIC, 17, struct stAF_MotorName)
 
 #define AFIOC_X_CTRLPARA _IOWR(AF_MAGIC, 18, struct stAF_CtrlCmd)
+
+#ifdef CONFIG_CAMERA_OIS_MCU
+/* only for the sysfs ois autotest: set af position and change af mode */
+#define AFIOC_S_SETOISAUTO _IOW(AF_MAGIC, 100, u32)
+#endif
 
 #endif

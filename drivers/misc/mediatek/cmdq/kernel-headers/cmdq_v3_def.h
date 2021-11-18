@@ -286,6 +286,9 @@ struct cmdqSecDataStruct {
 	uint64_t enginesNeedDAPC;
 	uint64_t enginesNeedPortSecurity;
 
+	uint64_t enginesDisableDAPC;
+	uint64_t enginesDisablePortSecurity;
+
 	/* [Reserved] This is for CMDQ driver usage itself. Not for client.
 	 * task index in thread's tasklist. -1 for not in tasklist.
 	 */
@@ -296,10 +299,10 @@ struct cmdqSecDataStruct {
 	/* ISP metadata for secure camera */
 	struct cmdqSecIspMeta ispMeta;
 	uint64_t extension;
-#ifdef MTK_IN_HOUSE_TEE
-    uint32_t secMode;
-#endif
-    bool mtee;
+	#ifdef MTK_IN_HOUSE_TEE
+	uint32_t secMode;
+	#endif
+	bool mtee;
 };
 
 struct cmdq_v3_replace_struct {

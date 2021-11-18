@@ -3476,6 +3476,12 @@ int mtk_p2p_cfg80211_testmode_cmd(struct wiphy *wiphy,
 					wdev, data, len);
 			break;
 
+		case TESTMODE_CMD_ID_UPDATE_STA_PMKID:
+			i4Status =
+			mtk_p2p_cfg80211_testmode_update_sta_pmkid_cmd(
+				wiphy, wdev->netdev, data, len);
+			break;
+
 		default:
 			i4Status = -EINVAL;
 			break;
@@ -4201,6 +4207,72 @@ int mtk_p2p_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy,
 
 	if (rstatus != WLAN_STATUS_SUCCESS)
 		fgIsValid = -EFAULT;
+
+	return fgIsValid;
+}
+
+int mtk_p2p_cfg80211_testmode_update_sta_pmkid_cmd(IN struct wiphy *wiphy,
+		IN struct net_device *nDev, IN void *data, IN int len)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct NL80211_DRIVER_UPDATE_STA_PMKID_PARAMS *prParams =
+		(struct NL80211_DRIVER_UPDATE_STA_PMKID_PARAMS *) NULL;
+	struct PARAM_PMKID pmkid;
+	uint8_t ucRoleIdx = 0;
+	uint8_t ucBssIdx = 0;
+	uint32_t rStatus;
+	uint32_t u4BufLen;
+	int fgIsValid = 0;
+
+	ASSERT(wiphy);
+
+	P2P_WIPHY_PRIV(wiphy, prGlueInfo);
+
+	if (data && len)
+		prParams = (struct NL80211_DRIVER_UPDATE_STA_PMKID_PARAMS *)
+			data;
+	else
+		return -EFAULT;
+
+	if (mtk_Netdev_To_RoleIdx(prGlueInfo, nDev, &ucRoleIdx) < 0) {
+		DBGLOG(P2P, WARN, "mtk_Netdev_To_RoleIdx\n");
+		return -EINVAL;
+	}
+	if (p2pFuncRoleToBssIdx(prGlueInfo->prAdapter,
+		ucRoleIdx, &ucBssIdx) != WLAN_STATUS_SUCCESS) {
+		DBGLOG(P2P, WARN, "p2pFuncRoleToBssIdx\n");
+		return -EINVAL;
+	}
+
+	COPY_MAC_ADDR(pmkid.arBSSID, prParams->aucSta);
+	kalMemCopy(pmkid.arPMKID, prParams->aucPmkid, IW_PMKID_LEN);
+	pmkid.ucBssIdx = ucBssIdx;
+	if (prParams->ucAddRemove) {
+		rStatus = kalIoctl(prGlueInfo, wlanoidSetPmkid, &pmkid,
+				   sizeof(struct PARAM_PMKID),
+				   FALSE, FALSE, FALSE, &u4BufLen);
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			DBGLOG(INIT, INFO, "add pmkid error:%x\n", rStatus);
+	} else {
+		rStatus = kalIoctl(prGlueInfo, wlanoidDelPmkid, &pmkid,
+				   sizeof(struct PARAM_PMKID),
+				   FALSE, FALSE, FALSE, &u4BufLen);
+		if (rStatus != WLAN_STATUS_SUCCESS)
+			DBGLOG(INIT, INFO, "remove pmkid error:%x\n", rStatus);
+	}
+
+	DBGLOG(P2P, LOUD,
+		"%s " MACSTR " PMKID:" PMKSTR "\n",
+		prParams->ucAddRemove?"Add":"Remove",
+		MAC2STR(prParams->aucSta),
+		prParams->aucPmkid[0], prParams->aucPmkid[1],
+		prParams->aucPmkid[2], prParams->aucPmkid[3],
+		prParams->aucPmkid[4], prParams->aucPmkid[5],
+		prParams->aucPmkid[6], prParams->aucPmkid[7],
+		prParams->aucPmkid[8], prParams->aucPmkid[9],
+		prParams->aucPmkid[10], prParams->aucPmkid[11],
+		prParams->aucPmkid[12] + prParams->aucPmkid[13],
+		prParams->aucPmkid[14], prParams->aucPmkid[15]);
 
 	return fgIsValid;
 }

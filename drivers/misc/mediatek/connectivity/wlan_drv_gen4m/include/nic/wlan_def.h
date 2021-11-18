@@ -1000,6 +1000,8 @@ struct RSN_INFO {
 	uint32_t au4AuthKeyMgtSuite[MAX_NUM_SUPPORTED_AKM_SUITES];
 	uint16_t u2RsnCap;
 	u_int8_t fgRsnCapPresent;
+	uint16_t u2PmkidCount;
+	uint8_t aucPmkid[IW_PMKID_LEN];
 } __KAL_ATTRIB_PACKED__;
 
 /* max number of supported AKM suites */
